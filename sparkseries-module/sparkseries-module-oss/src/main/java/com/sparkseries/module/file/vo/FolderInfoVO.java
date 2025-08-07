@@ -17,7 +17,11 @@ public class FolderInfoVO {
         this.folderPath = folderPath;
         String[] filename = folderPath.split("/");
         this.folderName = filename[filename.length - 1];
+    }
 
+    public FolderInfoVO(String folderName, String folderPath) {
+        this.folderName = folderName;
+        this.folderPath = folderPath;
     }
 
 }

@@ -1,6 +1,5 @@
 package com.sparkseries.module.storage.service.oss.impl;
 
-import static com.sparkseries.common.constant.Constants.DATA_FORMAT;
 import static com.sparkseries.common.constant.Constants.OSS_SIZE_THRESHOLD;
 
 import com.aliyun.oss.HttpMethod;
@@ -25,6 +24,7 @@ import com.aliyun.oss.model.UploadPartResult;
 import com.sparkseries.common.dto.MultipartFileDTO;
 import com.sparkseries.common.enums.StorageTypeEnum;
 import com.sparkseries.common.util.exception.BusinessException;
+import com.sparkseries.module.file.dao.FileMetadataMapper;
 import com.sparkseries.module.file.entity.FileMetadataEntity;
 import com.sparkseries.module.file.vo.FileInfoVO;
 import com.sparkseries.module.file.vo.FilesAndFoldersVO;
@@ -38,12 +38,10 @@ import java.net.URL;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -51,6 +49,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 
 /**
@@ -63,10 +62,14 @@ public class OssOssServiceImpl implements OssService {
 
     private final OssClientPool clientPool;
 
-    public OssOssServiceImpl(OssClientPool clientPool, String bucketName) {
+    private final FileMetadataMapper fileMetadataMapper;
+
+    public OssOssServiceImpl(OssClientPool clientPool, String bucketName, FileMetadataMapper fileMetadataMapper) {
+
         log.info("[初始化OSS服务] 开始初始化阿里云OSS存储服务");
         this.bucketName = bucketName;
         this.clientPool = clientPool;
+        this.fileMetadataMapper = fileMetadataMapper;
         log.info("[初始化OSS服务] 阿里云OSS存储服务初始化完成，存储桶: {}", bucketName);
     }
 
@@ -85,14 +88,13 @@ public class OssOssServiceImpl implements OssService {
             log.debug("[上传文件操作] 从连接池获取OSS客户端连接");
             client = clientPool.getClient();
             log.debug("[上传文件操作] 成功获取OSS客户端连接，开始创建文件元数据");
-            ObjectMetadata metadata = createMetadata(file);
 
             if (file.getSize() < OSS_SIZE_THRESHOLD) {
                 // 小文件直接上传
-                return uploadSmallFile(client, file, metadata);
+                return uploadSmallFile(client, file);
             } else {
                 // 大文件分片上传
-                return uploadLargeFile(client, file, metadata);
+                return uploadLargeFile(client, file);
             }
 
         } catch (Exception e) {
@@ -107,18 +109,10 @@ public class OssOssServiceImpl implements OssService {
         }
     }
 
-    private ObjectMetadata createMetadata(MultipartFileDTO file) {
-        ObjectMetadata metadata = new ObjectMetadata();
-        metadata.setContentType(file.getType());
-        metadata.addUserMetadata("original-filename", file.getFilename());
-        metadata.addUserMetadata("id", file.getId());
-        metadata.addUserMetadata("size", file.getStrSize());
-        return metadata;
-    }
 
-    private boolean uploadSmallFile(OSS client, MultipartFileDTO file, ObjectMetadata metadata) {
+    private boolean uploadSmallFile(OSS client, MultipartFileDTO file) {
         try (InputStream inputStream = file.getInputStream()) {
-            client.putObject(bucketName, file.getAbsolutePath(), inputStream, metadata);
+            client.putObject(bucketName, file.getAbsolutePath(), inputStream, null);
             log.info("小文件上传成功: key={}, size={}", file.getAbsolutePath(), file.getSize());
             return true;
         } catch (Exception e) {
@@ -126,10 +120,10 @@ public class OssOssServiceImpl implements OssService {
         }
     }
 
-    private boolean uploadLargeFile(OSS client, MultipartFileDTO file, ObjectMetadata metadata) {
+    private boolean uploadLargeFile(OSS client, MultipartFileDTO file) {
         try {
             uploadFileByMultipart(client, file.getInputStream(), file.getSize(), bucketName,
-                    file.getAbsolutePath(), metadata);
+                    file.getAbsolutePath(), null);
             log.info("大文件上传成功: key={}, size={}", file.getAbsolutePath(), file.getSize());
             return true;
         } catch (Exception e) {
@@ -400,58 +394,13 @@ public class OssOssServiceImpl implements OssService {
     @Override
     public FilesAndFoldersVO listFiles(String path) {
         log.info("[列出文件操作] 开始列出路径下的文件和文件夹: {}", path);
-        OSS client = null;
-        try {
-            log.debug("[列出文件操作] 从连接池获取OSS客户端连接");
-            client = clientPool.getClient();
-            log.debug("[列出文件操作] 成功获取OSS客户端连接，开始列出文件");
-            // 构造 ListObjectsRequest，设置 prefix(指定目录) 和 delimiter(指定分隔符)
-            ListObjectsRequest listObjectsRequest = new ListObjectsRequest(bucketName)
-                    .withPrefix(path)
-                    .withDelimiter("/");
-            ObjectListing objectListing = client.listObjects(listObjectsRequest);
-            // 获取目录下的文件
-            List<FileInfoVO> files = new ArrayList<>();
-            for (OSSObjectSummary file : objectListing.getObjectSummaries()) {
-                if (file.getKey().endsWith("/")) {
-                    continue; // 跳过目录
-                }
-                ObjectMetadata metadata = client.getObjectMetadata(bucketName, file.getKey());
-                Map<String, String> userMetadata = metadata.getUserMetadata();
 
-                String filename = userMetadata.get("original-filename");
-                String id = userMetadata.get("id");
-                String size = userMetadata.get("size");
+        List<FileInfoVO> fileInfos = fileMetadataMapper.listOssMetadataByPath(path);
 
-                Date lastModified = metadata.getLastModified();
-                SimpleDateFormat sdf = new SimpleDateFormat(DATA_FORMAT);
-                String formattedDate = sdf.format(lastModified);
+        List<FolderInfoVO> folders = fileMetadataMapper.listOssFolderByPath(path).stream()
+                .map(s -> new FolderInfoVO(s.replace(path, "").split("/")[0], path)).distinct().toList();
 
-                files.add(new FileInfoVO(id, filename, size, formattedDate));
-            }
-
-            // 获取目录下的子目录（CommonPrefixes）
-            List<String> folders = objectListing.getCommonPrefixes();
-            ArrayList<FolderInfoVO> folderInfos = new ArrayList<>();
-            for (String folder : folders) {
-                folderInfos.add(new FolderInfoVO(folder));
-            }
-            log.info("[列出文件操作] 成功列出路径 {} 下的 {} 个文件和 {} 个文件夹", path,
-                    files.size(), folderInfos.size());
-            return new FilesAndFoldersVO(files, folderInfos);
-        } catch (BusinessException e) {
-            log.error("[列出文件操作] 业务异常，获取路径 {} 下的文件及文件夹失败: {}", path,
-                    e.getMessage());
-            throw new BusinessException("获取路径下的文件及文件夹失败");
-        } catch (Exception e) {
-            log.error("[列出文件操作] 列出文件时发生异常: {}", e.getMessage(), e);
-            throw new RuntimeException(e);
-        } finally {
-            if (client != null) {
-                log.debug("[列出文件操作] 归还OSS客户端连接到连接池");
-                clientPool.returnClient(client);
-            }
-        }
+        return new FilesAndFoldersVO(fileInfos, folders);
     }
 
 

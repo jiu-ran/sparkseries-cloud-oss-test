@@ -2,7 +2,6 @@ package com.sparkseries.module.storage.service.oss.impl;
 
 import static com.qcloud.cos.http.HttpMethodName.GET;
 import static com.sparkseries.common.constant.Constants.COS_SIZE_THRESHOLD;
-import static com.sparkseries.common.constant.Constants.DATA_FORMAT;
 
 import com.qcloud.cos.COSClient;
 import com.qcloud.cos.event.ProgressEventType;
@@ -11,7 +10,6 @@ import com.qcloud.cos.model.CopyObjectRequest;
 import com.qcloud.cos.model.DeleteObjectsRequest;
 import com.qcloud.cos.model.DeleteObjectsResult;
 import com.qcloud.cos.model.GeneratePresignedUrlRequest;
-import com.qcloud.cos.model.GetObjectMetadataRequest;
 import com.qcloud.cos.model.ListObjectsRequest;
 import com.qcloud.cos.model.ObjectListing;
 import com.qcloud.cos.model.ObjectMetadata;
@@ -23,6 +21,7 @@ import com.qcloud.cos.transfer.Upload;
 import com.sparkseries.common.dto.MultipartFileDTO;
 import com.sparkseries.common.enums.StorageTypeEnum;
 import com.sparkseries.common.util.exception.BusinessException;
+import com.sparkseries.module.file.dao.FileMetadataMapper;
 import com.sparkseries.module.file.entity.FileMetadataEntity;
 import com.sparkseries.module.file.vo.FileInfoVO;
 import com.sparkseries.module.file.vo.FilesAndFoldersVO;
@@ -35,12 +34,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -63,10 +59,14 @@ public class CosOssServiceImpl implements OssService {
 
     private final String bucketName;
 
-    public CosOssServiceImpl(CosClientPool clientPool, String bucketName) {
+    private final FileMetadataMapper fileMetadataMapper;
+
+    public CosOssServiceImpl(CosClientPool clientPool, String bucketName, FileMetadataMapper fileMetadataMapper) {
+
         log.info("[初始化COS服务] 开始初始化腾讯云COS存储服务");
         this.clientPool = clientPool;
         this.bucketName = bucketName;
+        this.fileMetadataMapper = fileMetadataMapper;
         log.info("COS存储服务初始化完成 - 存储桶: {}, 连接池状态: {}",
                 bucketName, clientPool != null ? "已配置" : "未配置");
         log.debug("COS存储服务实例类型: {}, 分片上传阈值: {} MB",
@@ -94,18 +94,17 @@ public class CosOssServiceImpl implements OssService {
             log.debug("[上传文件操作] 从连接池获取COS客户端连接");
             client = clientPool.getClient();
             log.debug("[上传文件操作] 成功获取COS客户端连接，开始创建对象元数据");
-            ObjectMetadata metadata = createObjectMetadata(file);
 
             if (file.getSize() < COS_SIZE_THRESHOLD) {
                 log.debug("文件大小 {} bytes 小于阈值 {} bytes，使用小文件上传策略",
                         file.getSize(), COS_SIZE_THRESHOLD);
-                return uploadSmallFile(client, file, metadata);
+                return uploadSmallFile(client, file);
             } else {
                 log.debug("文件大小 {} bytes 大于阈值 {} bytes，使用分片上传策略",
                         file.getSize(), COS_SIZE_THRESHOLD);
                 threadPool = createThreadPool();
                 transferManager = new TransferManager(client, threadPool);
-                return uploadLargeFile(file, metadata, transferManager);
+                return uploadLargeFile(file, transferManager);
             }
 
         } catch (Exception e) {
@@ -122,36 +121,19 @@ public class CosOssServiceImpl implements OssService {
     }
 
     /**
-     * 创建对象元数据
-     *
-     * @param file 文件信息
-     * @return 对象元数据
-     */
-    private ObjectMetadata createObjectMetadata(MultipartFileDTO file) {
-        ObjectMetadata metadata = new ObjectMetadata();
-        metadata.setContentType(file.getType());
-        metadata.addUserMetadata("original-filename", file.getFilename());
-        metadata.addUserMetadata("id", file.getId());
-        metadata.addUserMetadata("size", file.getStrSize());
-        return metadata;
-    }
-
-    /**
      * 上传小文件
      *
-     * @param client   COS客户端
-     * @param file     文件信息
-     * @param metadata 对象元数据
+     * @param client COS客户端
+     * @param file   文件信息
      * @return 上传是否成功
      */
-    private boolean uploadSmallFile(COSClient client, MultipartFileDTO file,
-            ObjectMetadata metadata) {
+    private boolean uploadSmallFile(COSClient client, MultipartFileDTO file) {
         long startTime = System.currentTimeMillis();
         log.debug("COS 开始小文件上传 - 文件: {}, 大小: {} bytes", file.getAbsolutePath(),
                 file.getSize());
 
         try (InputStream inputStream = file.getInputStream()) {
-            client.putObject(bucketName, file.getAbsolutePath(), inputStream, metadata);
+            client.putObject(bucketName, file.getAbsolutePath(), inputStream, null);
 
             long duration = System.currentTimeMillis() - startTime;
             log.info("COS 小文件上传成功 - 文件: {}, 大小: {} bytes, 耗时: {} ms",
@@ -169,11 +151,10 @@ public class CosOssServiceImpl implements OssService {
      * 上传大文件（分片上传）
      *
      * @param file            文件信息
-     * @param metadata        对象元数据
      * @param transferManager 传输管理器
      * @return 上传是否成功
      */
-    private boolean uploadLargeFile(MultipartFileDTO file, ObjectMetadata metadata,
+    private boolean uploadLargeFile(MultipartFileDTO file,
             TransferManager transferManager) {
         File tempFile = null;
         long startTime = System.currentTimeMillis();
@@ -188,8 +169,7 @@ public class CosOssServiceImpl implements OssService {
 
             // 配置分片上传请求
             PutObjectRequest putRequest = new PutObjectRequest(bucketName, file.getAbsolutePath(),
-                    tempFile)
-                    .withMetadata(metadata);
+                    tempFile);
 
             // 执行上传并监控进度
             log.debug("开始执行分片上传");
@@ -700,83 +680,15 @@ public class CosOssServiceImpl implements OssService {
      */
     @Override
     public FilesAndFoldersVO listFiles(String path) {
-        List<FileInfoVO> files = new ArrayList<>();
-        List<FolderInfoVO> folders = new ArrayList<>();
-        COSClient client = null;
-        long startTime = System.currentTimeMillis();
+
         log.info("COS 开始列出文件和文件夹 - 路径: {}", path);
 
-        try {
-            log.debug("[列出文件操作] 从连接池获取COS客户端连接");
-            client = clientPool.getClient();
-            log.debug("[列出文件操作] 成功获取COS客户端连接，开始构建列表请求");
-            ListObjectsRequest request = new ListObjectsRequest();
-            request.setBucketName(bucketName);
-            request.setPrefix(path);
-            request.setDelimiter("/");
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern(DATA_FORMAT);
-            ObjectListing objectListing;
-            int totalObjects = 0;
-            do {
-                objectListing = client.listObjects(request);
+        List<FileInfoVO> fileInfos = fileMetadataMapper.listCosMetadataByPath(path);
 
-                // 处理文件（对象）
-                for (COSObjectSummary objectSummary : objectListing.getObjectSummaries()) {
-                    if (objectSummary.getKey().equals(path)) {
-                        continue; // 跳过前缀本身
-                    }
+        List<FolderInfoVO> folders = fileMetadataMapper.listCosFolderByPath(path).stream()
+                .map(s -> new FolderInfoVO(s.replace(path, "").split("/")[0], path)).distinct().toList();
 
-                    ObjectMetadata metadata = client.getObjectMetadata(
-                            new GetObjectMetadataRequest(bucketName, objectSummary.getKey()));
-                    String format = formatter.format(metadata.getLastModified().toInstant().atZone(ZoneId.of("GMT+8")));
-
-                    Map<String, String> userMetadata = metadata.getUserMetadata();
-                    userMetadata.forEach((k, v) -> System.out.println(k));
-                    FileInfoVO fileInfo = new FileInfoVO(userMetadata.get("id"),
-                            userMetadata.get("original-filename"), userMetadata.get("size"), format);
-
-                    files.add(fileInfo);
-                    totalObjects++;
-                }
-
-                // 处理文件夹（公共前缀）
-                for (String commonPrefix : objectListing.getCommonPrefixes()) {
-                    FolderInfoVO folderInfo = new FolderInfoVO();
-                    folderInfo.setFolderPath(commonPrefix);
-                    folderInfo.setFolderName(
-                            commonPrefix.substring(path.length(), commonPrefix.length() - 1));
-                    folders.add(folderInfo);
-                    totalObjects++;
-                }
-
-                // 设置下一页的 Marker
-                request.setMarker(objectListing.getNextMarker());
-            } while (objectListing.isTruncated());
-
-            FilesAndFoldersVO filesAndFoldersVO = new FilesAndFoldersVO(files, folders);
-
-            long duration = System.currentTimeMillis() - startTime;
-            log.info(
-                    "COS 列出文件和文件夹成功 - 路径: {}, 文件数: {}, 文件夹数: {}, 总计: {}, 耗时: {} ms",
-                    path, files.size(), folders.size(), totalObjects, duration);
-            return filesAndFoldersVO;
-        } catch (Exception e) {
-            long duration = System.currentTimeMillis() - startTime;
-            log.error("COS 列出文件和文件夹失败 - 路径: {}, 耗时: {} ms, 错误信息: {}", path,
-                    duration, e.getMessage(), e);
-            throw new BusinessException("列出文件和文件夹失败: " + e.getMessage());
-        } finally {
-            // 确保客户端归还到池中
-            if (client != null) {
-                try {
-                    log.debug("[列出文件操作] 归还COS客户端连接到连接池");
-                    clientPool.returnClient(client);
-                } catch (Exception e) {
-                    log.warn("归还COSClient到池中失败", e);
-                }
-            }
-        }
-
+        return new FilesAndFoldersVO(fileInfos, folders);
     }
 
     /**

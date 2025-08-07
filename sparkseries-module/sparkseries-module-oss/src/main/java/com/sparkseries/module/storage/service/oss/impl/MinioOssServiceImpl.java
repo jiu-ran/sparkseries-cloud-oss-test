@@ -1,11 +1,11 @@
 package com.sparkseries.module.storage.service.oss.impl;
 
-import static com.sparkseries.common.constant.Constants.DATA_FORMAT;
 import static com.sparkseries.common.constant.Constants.MINIO_SIZE_THRESHOLD;
 
 import com.sparkseries.common.dto.MultipartFileDTO;
 import com.sparkseries.common.enums.StorageTypeEnum;
 import com.sparkseries.common.util.exception.BusinessException;
+import com.sparkseries.module.file.dao.FileMetadataMapper;
 import com.sparkseries.module.file.entity.FileMetadataEntity;
 import com.sparkseries.module.file.vo.FileInfoVO;
 import com.sparkseries.module.file.vo.FilesAndFoldersVO;
@@ -14,8 +14,6 @@ import com.sparkseries.module.storage.pool.MinioClientPool;
 import com.sparkseries.module.storage.service.oss.OssService;
 import io.minio.CopyObjectArgs;
 import io.minio.CopySource;
-import io.minio.GetObjectArgs;
-import io.minio.GetObjectResponse;
 import io.minio.GetPresignedObjectUrlArgs;
 import io.minio.ListObjectsArgs;
 import io.minio.MinioClient;
@@ -26,9 +24,6 @@ import io.minio.http.Method;
 import io.minio.messages.Item;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -46,6 +41,7 @@ public class MinioOssServiceImpl implements OssService {
 
     public final MinioClientPool clientPool;
     public final String bucketName;
+    private final FileMetadataMapper fileMetadataMapper;
 
     /**
      * 构造函数
@@ -53,10 +49,12 @@ public class MinioOssServiceImpl implements OssService {
      * @param clientPool Minio客户端连接池
      * @param bucketName 存储桶名称
      */
-    public MinioOssServiceImpl(MinioClientPool clientPool, String bucketName) {
+    public MinioOssServiceImpl(MinioClientPool clientPool, String bucketName, FileMetadataMapper fileMetadataMapper) {
+
         log.info("[初始化Minio服务] 开始初始化Minio存储服务");
         this.clientPool = clientPool;
         this.bucketName = bucketName;
+        this.fileMetadataMapper = fileMetadataMapper;
         log.debug("Minio客户端连接池实例: {}", clientPool.getClass().getSimpleName());
         log.info("[初始化Minio服务] Minio存储服务初始化完成，存储桶: {}", bucketName);
     }
@@ -76,14 +74,13 @@ public class MinioOssServiceImpl implements OssService {
 
         try {
             client = clientPool.getClient();
-            Map<String, String> metadata = createMetadata(fileInfo);
 
             if (fileInfo.getSize() < MINIO_SIZE_THRESHOLD) {
                 // 小文件直接上传
-                return uploadSmallFile(client, fileInfo, metadata);
+                return uploadSmallFile(client, fileInfo);
             } else {
                 // 大文件分片上传
-                return uploadLargeFile(client, fileInfo, metadata);
+                return uploadLargeFile(client, fileInfo);
             }
         } catch (Exception e) {
             log.error("[上传文件操作] 文件上传失败 - 目标路径: {}, 错误: {}",
@@ -102,11 +99,9 @@ public class MinioOssServiceImpl implements OssService {
      *
      * @param client   Minio客户端
      * @param fileInfo 文件信息
-     * @param metadata 文件元数据
      * @return 上传是否成功
      */
-    private boolean uploadSmallFile(MinioClient client, MultipartFileDTO fileInfo,
-            Map<String, String> metadata) {
+    private boolean uploadSmallFile(MinioClient client, MultipartFileDTO fileInfo) {
         long startTime = System.currentTimeMillis();
         try (InputStream inputStream = fileInfo.getInputStream()) {
             log.debug("开始执行小文件上传操作: {}", fileInfo.getAbsolutePath());
@@ -114,7 +109,7 @@ public class MinioOssServiceImpl implements OssService {
                     PutObjectArgs.builder().bucket(bucketName).object(fileInfo.getAbsolutePath())
                             .stream(inputStream, fileInfo.getSize(), -1)
                             .contentType(fileInfo.getType())
-                            .userMetadata(metadata).build());
+                            .build());
 
             long duration = System.currentTimeMillis() - startTime;
             log.info("Minio 小文件上传成功: {}, 大小: {} bytes, 耗时: {} ms",
@@ -133,11 +128,9 @@ public class MinioOssServiceImpl implements OssService {
      *
      * @param client   Minio客户端
      * @param fileInfo 文件信息
-     * @param metadata 文件元数据
      * @return 上传是否成功
      */
-    private boolean uploadLargeFile(MinioClient client, MultipartFileDTO fileInfo,
-            Map<String, String> metadata) {
+    private boolean uploadLargeFile(MinioClient client, MultipartFileDTO fileInfo) {
         long startTime = System.currentTimeMillis();
         try (InputStream inputStream = fileInfo.getInputStream()) {
             // Minio会自动处理分片上传，设置合适的分片大小
@@ -148,7 +141,7 @@ public class MinioOssServiceImpl implements OssService {
             client.putObject(
                     PutObjectArgs.builder().bucket(bucketName).object(fileInfo.getAbsolutePath())
                             .stream(inputStream, fileInfo.getSize(), partSize)
-                            .contentType(fileInfo.getType()).userMetadata(metadata).build());
+                            .contentType(fileInfo.getType()).build());
 
             long duration = System.currentTimeMillis() - startTime;
             log.info(
@@ -163,19 +156,6 @@ public class MinioOssServiceImpl implements OssService {
         }
     }
 
-    /**
-     * 创建文件元数据
-     *
-     * @param fileInfo 文件信息
-     * @return 文件元数据映射
-     */
-    private Map<String, String> createMetadata(MultipartFileDTO fileInfo) {
-        Map<String, String> metadata = new HashMap<>(3);
-        metadata.put("size", fileInfo.getStrSize());
-        metadata.put("original-filename", fileInfo.getFilename());
-        metadata.put("id", String.valueOf(fileInfo.getId()));
-        return metadata;
-    }
 
     /**
      * 上传头像文件
@@ -448,66 +428,14 @@ public class MinioOssServiceImpl implements OssService {
      */
     @Override
     public FilesAndFoldersVO listFiles(String path) {
-        MinioClient client = null;
-        long startTime = System.currentTimeMillis();
         log.info("[列出文件操作] 开始获取目录列表 - 路径: {} (非递归)", path);
-        try {
-            client = clientPool.getClient();
-            ArrayList<FileInfoVO> fileInfos = new ArrayList<>();
-            ArrayList<FolderInfoVO> folderInfos = new ArrayList<>();
 
-            Iterable<Result<Item>> results = client.listObjects(
-                    ListObjectsArgs.builder().bucket(bucketName).prefix(path).recursive(false)
-                            .build());
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern(DATA_FORMAT);
-            ZoneId targetZone = ZoneId.of("GMT+8");
-            int processedCount = 0;
-            for (Result<Item> result : results) {
-                Item item = result.get();
-                processedCount++;
+        List<FileInfoVO> fileInfos = fileMetadataMapper.listMinioMetadataByPath(path);
 
-                if (item.objectName().endsWith("/")) {
-                    log.debug("发现文件夹: {}", item.objectName());
-                    folderInfos.add(new FolderInfoVO(item.objectName()));
-                } else {
-                    log.debug("发现文件: {}, 大小: {} bytes", item.objectName(), item.size());
-                    GetObjectResponse response = client.getObject(
-                            GetObjectArgs.builder().bucket(bucketName).object(item.objectName())
-                                    .build());
-                    Map<String, List<String>> multimap = response.headers().toMultimap();
-                    List<String> fileName = multimap.get("x-amz-meta-original-filename");
-                    List<String> id = multimap.get("x-amz-meta-id");
-                    List<String> size = multimap.get("x-amz-meta-size");
+        List<FolderInfoVO> folders = fileMetadataMapper.listMinioFolderByPath(path).stream()
+                .map(s -> new FolderInfoVO(s.replace(path, "").split("/")[0], path)).distinct().toList();
 
-                    ZonedDateTime zonedDateTime = item.lastModified();
-                    String formattedDate = zonedDateTime.withZoneSameInstant(targetZone)
-                            .format(formatter);
-                    fileInfos.add(
-                            new FileInfoVO(id.get(0), fileName.get(0), size.get(0), formattedDate));
-                }
-
-                if (processedCount % 20 == 0) {
-                    log.debug("已处理 {} 个对象", processedCount);
-                }
-            }
-
-            FilesAndFoldersVO list = new FilesAndFoldersVO(fileInfos, folderInfos);
-            long duration = System.currentTimeMillis() - startTime;
-            log.info(
-                    "[列出文件操作] 成功获取目录列表 - 路径: {}, 文件数: {}, 文件夹数: {}, 总计: {} 个对象, 耗时: {} ms",
-                    path, fileInfos.size(), folderInfos.size(), processedCount, duration);
-            return list;
-        } catch (Exception e) {
-            long duration = System.currentTimeMillis() - startTime;
-            log.error("Minio 获取目录列表失败 - 路径: {}, 耗时: {} ms, 错误信息: {}", path,
-                    duration, e.getMessage(), e);
-            throw new BusinessException(
-                    "Minio 获取:" + path + "下的文件及文件夹失败: " + e.getMessage());
-        } finally {
-            if (client != null) {
-                clientPool.returnClient(client);
-            }
-        }
+        return new FilesAndFoldersVO(fileInfos, folders);
     }
 
     /**

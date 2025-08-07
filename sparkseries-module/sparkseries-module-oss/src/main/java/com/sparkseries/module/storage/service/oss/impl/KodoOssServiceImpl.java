@@ -1,6 +1,5 @@
 package com.sparkseries.module.storage.service.oss.impl;
 
-import static com.sparkseries.common.constant.Constants.DATA_FORMAT;
 import static com.sparkseries.common.constant.Constants.KODO_SIZE_THRESHOLD;
 
 import com.qiniu.common.QiniuException;
@@ -12,10 +11,10 @@ import com.qiniu.storage.UploadManager;
 import com.qiniu.storage.model.FileInfo;
 import com.qiniu.storage.model.FileListing;
 import com.qiniu.util.Auth;
-import com.qiniu.util.StringMap;
 import com.sparkseries.common.dto.MultipartFileDTO;
 import com.sparkseries.common.enums.StorageTypeEnum;
 import com.sparkseries.common.util.exception.BusinessException;
+import com.sparkseries.module.file.dao.FileMetadataMapper;
 import com.sparkseries.module.file.entity.FileMetadataEntity;
 import com.sparkseries.module.file.vo.FileInfoVO;
 import com.sparkseries.module.file.vo.FilesAndFoldersVO;
@@ -27,13 +26,8 @@ import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
-import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.CharEncoding;
 import org.apache.commons.codec.EncoderException;
@@ -48,6 +42,7 @@ public class KodoOssServiceImpl implements OssService {
 
 
     private final String bucketName;
+    private final FileMetadataMapper fileMetadataMapper;
     /**
      * 七牛云存储配置 用于配置上传、下载等操作的区域、分片上传版本等
      */
@@ -60,10 +55,12 @@ public class KodoOssServiceImpl implements OssService {
      * @param clientPool Kodo客户端连接池
      * @param bucketName 存储桶名称
      */
-    public KodoOssServiceImpl(KodoClientPool clientPool, String bucketName) {
+    public KodoOssServiceImpl(KodoClientPool clientPool, String bucketName, FileMetadataMapper fileMetadataMapper) {
+
         log.info("[初始化Kodo存储服务] 开始初始化，存储桶: {}", bucketName);
         this.bucketName = bucketName;
         this.clientPool = clientPool;
+        this.fileMetadataMapper = fileMetadataMapper;
         this.config = new Configuration(Region.autoRegion());
         config.resumableUploadAPIVersion = Configuration.ResumableUploadAPIVersion.V2;
         config.resumableUploadMaxConcurrentTaskCount = 20;
@@ -103,21 +100,16 @@ public class KodoOssServiceImpl implements OssService {
             log.debug("[上传文件操作] 成功获取Kodo客户端连接，开始上传文件");
             log.info("开始上传文件到Kodo: {}, 大小: {} bytes", originalFilename, file.getSize());
 
-            // 设置元数据
-            StringMap params = new StringMap();
-            params.put("x-qn-meta-original-filename", originalFilename);
-            params.put("x-qn-meta-id", file.getId());
-            params.put("x-qn-meta-size", file.getStrSize());
             String uploadToken = client.uploadToken(bucketName, absolutePath);
             UploadManager uploadManager = new UploadManager(config);
 
             // 按照七牛云最佳实践：4MB作为分片上传阈值
             if (file.getSize() > KODO_SIZE_THRESHOLD) {
                 // 大文件分片上传
-                return uploadLargeFile(uploadManager, file, uploadToken, params, absolutePath);
+                return uploadLargeFile(uploadManager, file, uploadToken, absolutePath);
             } else {
                 // 小文件直接上传
-                return uploadSmallFile(uploadManager, file, uploadToken, params, absolutePath);
+                return uploadSmallFile(uploadManager, file, uploadToken, absolutePath);
             }
         } catch (Exception e) {
             log.error("Kodo文件上传失败: {}", e.getMessage(), e);
@@ -136,18 +128,17 @@ public class KodoOssServiceImpl implements OssService {
      * @param uploadManager 上传管理器
      * @param file          文件信息
      * @param uploadToken   上传令牌
-     * @param params        上传参数
      * @param absolutePath  文件绝对路径
      * @return 上传是否成功
      */
     private boolean uploadSmallFile(UploadManager uploadManager, MultipartFileDTO file,
-            String uploadToken, StringMap params, String absolutePath) {
+            String uploadToken, String absolutePath) {
         try {
             long fileSize = file.getSize();
             log.info("使用直接上传: 文件大小={} KB, 文件路径={}", fileSize / 1024, absolutePath);
 
             Response response = uploadManager.put(file.getInputStream(), absolutePath, uploadToken,
-                    params, null);
+                    null, null);
             if (!response.isOK()) {
                 log.error("直接上传失败: 文件路径={}, 错误信息: {}", absolutePath, response.error);
                 throw new BusinessException("直接上传失败: " + response.error);
@@ -166,12 +157,11 @@ public class KodoOssServiceImpl implements OssService {
      * @param uploadManager 上传管理器
      * @param file          文件信息
      * @param uploadToken   上传令牌
-     * @param params        上传参数
      * @param absolutePath  文件绝对路径
      * @return 上传是否成功
      */
     private boolean uploadLargeFile(UploadManager uploadManager, MultipartFileDTO file,
-            String uploadToken, StringMap params, String absolutePath) {
+            String uploadToken, String absolutePath) {
         File tempFile = null;
         try {
             long fileSize = file.getSize();
@@ -186,7 +176,7 @@ public class KodoOssServiceImpl implements OssService {
             }
 
             // 分片上传，Kodo SDK会自动处理分片逻辑
-            Response response = uploadManager.put(tempFile, absolutePath, uploadToken, params, null,
+            Response response = uploadManager.put(tempFile, absolutePath, uploadToken, null, null,
                     false);
             if (!response.isOK()) {
                 log.error("分片上传失败: 文件路径={}, 错误信息: {}", absolutePath, response.error);
@@ -559,78 +549,11 @@ public class KodoOssServiceImpl implements OssService {
     @Override
     public FilesAndFoldersVO listFiles(String path) {
         log.info("[列出文件操作] 开始列出路径下的文件和文件夹: {}", path);
-        Auth client = null;
-        try {
-            log.debug("[列出文件操作] 从连接池获取Kodo客户端连接");
-            client = clientPool.getClient();
-            log.debug("[列出文件操作] 成功获取Kodo客户端连接，开始列出文件");
+        List<FileInfoVO> files = fileMetadataMapper.listKodoMetadataByPath(path);
+        List<FolderInfoVO> folders = fileMetadataMapper.listKodoFolderByPath(path).stream()
+                .map(s -> new FolderInfoVO(s.replace(path, "").split("/")[0], path)).distinct().toList();
 
-            BucketManager bucketManager = new BucketManager(client, config);
-            List<FileInfoVO> files = new ArrayList<>();
-            List<FolderInfoVO> folders = new ArrayList<>();
-
-            String marker = null;
-            final int limit = 1000;
-            boolean hasMore = true;
-
-            while (hasMore) {
-                FileListing fileListing = bucketManager.listFiles(bucketName, path, marker, limit,
-                        null);
-                for (FileInfo fileInfo : fileListing.items) {
-                    String key = fileInfo.key;
-                    if (key.equals(path)) {
-                        continue; // 跳过文件夹本身的占位对象
-                    }
-
-                    if (key.endsWith("/")) {
-                        // 文件夹（占位对象）
-                        folders.add(new FolderInfoVO(key));
-                    } else {
-                        // 文件
-                        long putTimeMillis = fileInfo.putTime / 10000;
-                        Date lastModified = new Date(putTimeMillis);
-                        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(DATA_FORMAT);
-                        ZonedDateTime zonedDateTime = lastModified.toInstant().atZone(ZoneId.of("GMT+8"));
-                        String format = zonedDateTime.format(formatter);
-                        Map<String, Object> meta = fileInfo.meta;
-                        String id = meta.get("id").toString();
-                        String filename = meta.get("original-filename").toString();
-                        String size = meta.get("size").toString();
-
-                        files.add(new FileInfoVO(id, filename, size, format));
-                    }
-                }
-
-                // 处理 commonPrefixes（子文件夹）
-                if (fileListing.commonPrefixes != null) {
-                    for (String prefix : fileListing.commonPrefixes) {
-                        if (!prefix.equals(path)) {
-                            folders.add(new FolderInfoVO(
-                                    prefix.substring(path.length(), prefix.length() - 1)));
-                        }
-                    }
-                }
-
-                // 更新分页标记，若无更多数据则退出
-                marker = fileListing.marker;
-                hasMore = marker != null && !marker.isEmpty();
-            }
-            log.info("[列出文件操作] 路径 {} 下找到 {} 个文件和 {} 个文件夹", path, files.size(),
-                    folders.size());
-            return new FilesAndFoldersVO(files, folders);
-        } catch (QiniuException e) {
-            log.error("[列出文件操作] 七牛云异常: {}", e.getMessage());
-            throw new BusinessException(400, e.getMessage());
-        } catch (Exception e) {
-            log.error("[列出文件操作] 列出文件时发生异常: {}", e.getMessage(), e);
-            throw new RuntimeException(e);
-        } finally {
-            if (client != null) {
-                log.debug("[列出文件操作] 归还Kodo客户端连接到连接池");
-                clientPool.returnClient(client);
-            }
-        }
-
+        return new FilesAndFoldersVO(files, folders);
     }
 
     /**

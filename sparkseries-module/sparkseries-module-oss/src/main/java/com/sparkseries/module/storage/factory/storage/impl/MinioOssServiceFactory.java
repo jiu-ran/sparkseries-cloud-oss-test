@@ -5,6 +5,7 @@ import com.sparkseries.common.enums.StorageTypeEnum;
 import com.sparkseries.common.util.exception.BusinessException;
 import com.sparkseries.module.cloudconfig.dao.CloudConfigMapper;
 import com.sparkseries.module.cloudconfig.entity.MinioConfigEntity;
+import com.sparkseries.module.file.dao.FileMetadataMapper;
 import com.sparkseries.module.storage.factory.storage.OssServiceFactory;
 import com.sparkseries.module.cloudconfig.service.connect.impl.MinioValidConnectServiceImpl;
 import com.sparkseries.module.storage.service.oss.OssService;
@@ -23,6 +24,7 @@ public class MinioOssServiceFactory implements OssServiceFactory {
 
     private final CloudConfigMapper cloudConfigMapper;
     private final PoolConfig poolConfig;
+    private final FileMetadataMapper fileMetadataMapper;
 
     @Override
     public StorageTypeEnum getStorageType() {
@@ -39,6 +41,6 @@ public class MinioOssServiceFactory implements OssServiceFactory {
             throw new BusinessException("保存的MINIO存储配置失效了请重新保存");
         }
         MinioClientPool minioClientPool = new MinioClientPool(minio.getEndpoint(), minio.getAccessKey(), minio.getSecretKey(), poolConfig);
-        return new MinioOssServiceImpl(minioClientPool, minio.getBucketName());
+        return new MinioOssServiceImpl(minioClientPool, minio.getBucketName(), fileMetadataMapper);
     }
 }

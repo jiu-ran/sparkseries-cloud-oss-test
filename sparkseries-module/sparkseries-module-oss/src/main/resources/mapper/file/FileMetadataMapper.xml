@@ -79,7 +79,7 @@
 
   <select id="listOssFolderByPath"
     resultType="java.lang.String">
-    SELECT storage_path
+    SELECT distinct storage_path
     FROM file_metadata
     WHERE storage_path = concat(#{path}, '%')
       and storage_type = 'OSS';
@@ -95,7 +95,7 @@
 
   <select id="listKodoFolderByPath"
     resultType="java.lang.String">
-    SELECT storage_path
+    SELECT distinct storage_path
     FROM file_metadata
     WHERE storage_path = concat(#{path}, '%')
       and storage_type = 'KODO';
@@ -111,7 +111,7 @@
 
   <select id="listCosFolderByPath"
     resultType="java.lang.String">
-    SELECT storage_path
+    SELECT distinct storage_path
     FROM file_metadata
     WHERE storage_path = concat(#{path}, '%')
       and storage_type = 'COS';
@@ -127,7 +127,7 @@
 
   <select id="listMinioFolderByPath"
     resultType="java.lang.String">
-    SELECT storage_path
+    SELECT distinct storage_path
     FROM file_metadata
     WHERE storage_path = concat(#{path}, '%')
       and storage_type = 'Minio';

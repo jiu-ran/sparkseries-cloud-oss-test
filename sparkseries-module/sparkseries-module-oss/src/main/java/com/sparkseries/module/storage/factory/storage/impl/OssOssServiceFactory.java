@@ -5,11 +5,12 @@ import com.sparkseries.common.enums.StorageTypeEnum;
 import com.sparkseries.common.util.exception.BusinessException;
 import com.sparkseries.module.cloudconfig.dao.CloudConfigMapper;
 import com.sparkseries.module.cloudconfig.entity.OssConfigEntity;
-import com.sparkseries.module.storage.factory.storage.OssServiceFactory;
 import com.sparkseries.module.cloudconfig.service.connect.impl.OssValidConnectServiceImpl;
+import com.sparkseries.module.file.dao.FileMetadataMapper;
+import com.sparkseries.module.storage.factory.storage.OssServiceFactory;
+import com.sparkseries.module.storage.pool.OssClientPool;
 import com.sparkseries.module.storage.service.oss.OssService;
 import com.sparkseries.module.storage.service.oss.impl.OssOssServiceImpl;
-import com.sparkseries.module.storage.pool.OssClientPool;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
@@ -23,6 +24,7 @@ public class OssOssServiceFactory implements OssServiceFactory {
 
     private final CloudConfigMapper cloudConfigMapper;
     private final PoolConfig poolConfig;
+    private final FileMetadataMapper fileMetadataMapper;
 
 
     @Override
@@ -37,10 +39,12 @@ public class OssOssServiceFactory implements OssServiceFactory {
             throw new BusinessException("OSS 该配置文件不存在 请先保存再进行切换");
         }
         // 建议将 connectTest 也作为 Bean 注入，而不是每次都 new
-        if (!new OssValidConnectServiceImpl().connectTest(oss.getEndpoint(), oss.getAccessKeyId(), oss.getAccessKeySecret(), oss.getBucketName(), oss.getRegion())) {
+        if (!new OssValidConnectServiceImpl().connectTest(oss.getEndpoint(), oss.getAccessKeyId(),
+                oss.getAccessKeySecret(), oss.getBucketName(), oss.getRegion())) {
             throw new BusinessException("保存的OSS存储配置失效了请重新保存");
         }
-        OssClientPool ossClientPool = new OssClientPool(oss.getEndpoint(), oss.getAccessKeyId(), oss.getAccessKeySecret(), oss.getRegion(), poolConfig);
-        return new OssOssServiceImpl(ossClientPool, oss.getBucketName());
+        OssClientPool ossClientPool = new OssClientPool(oss.getEndpoint(), oss.getAccessKeyId(),
+                oss.getAccessKeySecret(), oss.getRegion(), poolConfig);
+        return new OssOssServiceImpl(ossClientPool, oss.getBucketName(), fileMetadataMapper);
     }
 }

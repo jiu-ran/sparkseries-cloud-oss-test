@@ -5,6 +5,7 @@ import com.sparkseries.common.enums.StorageTypeEnum;
 import com.sparkseries.common.util.exception.BusinessException;
 import com.sparkseries.module.cloudconfig.dao.CloudConfigMapper;
 import com.sparkseries.module.cloudconfig.entity.KodoConfigEntity;
+import com.sparkseries.module.file.dao.FileMetadataMapper;
 import com.sparkseries.module.storage.factory.storage.OssServiceFactory;
 import com.sparkseries.module.cloudconfig.service.connect.impl.KodoValidConnectServiceImpl;
 import com.sparkseries.module.storage.service.oss.OssService;
@@ -23,6 +24,7 @@ public class KodoOssServiceFactory implements OssServiceFactory {
 
     private final CloudConfigMapper cloudConfigMapper;
     private final PoolConfig poolConfig;
+    private final FileMetadataMapper fileMetadataMapper;
 
     @Override
     public StorageTypeEnum getStorageType() {
@@ -40,6 +42,6 @@ public class KodoOssServiceFactory implements OssServiceFactory {
         }
         KodoClientPool kodoClientPool = new KodoClientPool(kodo.getAccessKey(), kodo.getSecretKey(), poolConfig);
 
-        return new KodoOssServiceImpl(kodoClientPool, kodo.getBucketName());
+        return new KodoOssServiceImpl(kodoClientPool, kodo.getBucketName(), fileMetadataMapper);
     }
 }

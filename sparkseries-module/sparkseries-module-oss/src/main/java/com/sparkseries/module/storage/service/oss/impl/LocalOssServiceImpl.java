@@ -642,7 +642,7 @@ public class LocalOssServiceImpl implements OssService {
         }
 
 
-        List<FileInfoVO> files = fileMetadataMapper.listMetadataByPath(tempPath);
+        List<FileInfoVO> files = fileMetadataMapper.listLocalMetadataByPath(path);
 
         try (var stream = Files.list(dir)) {
             List<Path> list = stream.toList();
