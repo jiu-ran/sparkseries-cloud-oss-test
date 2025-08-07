@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.3.5</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.sparkseries</groupId>
+    <artifactId>sparkseries-cloud</artifactId>
+    <version>${revision}</version>
+    <packaging>pom</packaging>
+
+    <description>星火开源组开发</description>
+
+    <modules>
+        <module>sparkseries-common</module>
+        <module>sparkseries-module</module>
+    </modules>
+
+    <properties>
+        <!-- 项目版本 -->
+        <revision>1.0.0</revision>
+        <java.version>17</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!-- 微服务 -->
+        <spring.cloud.version>2023.0.1</spring.cloud.version>
+        <spring.ai.version>1.0.0</spring.ai.version>
+        <spring.cloud.alibaba.version>2023.0.1.2</spring.cloud.alibaba.version>
+        <google-cloud.version>26.64.0</google-cloud.version>
+        <!-- 插件版本 -->
+        <flatten-maven-plugin.version>1.6.0</flatten-maven-plugin.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-bootstrap</artifactId>
+        </dependency>
+        <!-- LomBok插件  -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <!-- 测试依赖 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- 监控 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+    </dependencies>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Spring Cloud -->
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring.cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- Spring Cloud Alibaba -->
+            <dependency>
+                <groupId>com.alibaba.cloud</groupId>
+                <artifactId>spring-cloud-alibaba-dependencies</artifactId>
+                <version>${spring.cloud.alibaba.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- Spring AI -->
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring.ai.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- Google -->
+            <dependency>
+                <groupId>com.google.cloud</groupId>
+                <artifactId>libraries-bom</artifactId>
+                <version>${google-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- sparkseries 公共依赖 -->
+            <dependency>
+                <groupId>com.sparkseries</groupId>
+                <artifactId>sparkseries-common-dependency</artifactId>
+                <version>${revision}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <repositories>
+        <repository>
+            <id>aliyun-groups</id>
+            <name>阿里云公共组仓库</name>
+            <url>https://maven.aliyun.com/nexus/content/groups/public/</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+        <repository>
+            <id>spring-milestones</id>
+            <name>官方中央仓库</name>
+            <url>https://repo.maven.apache.org/maven2/</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
+
+    <build>
+        <plugins>
+            <!-- 版本统一管理 -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>flatten-maven-plugin</artifactId>
+                <version>${flatten-maven-plugin.version}</version>
+                <configuration>
+                    <updatePomFile>true</updatePomFile>
+                    <flattenMode>resolveCiFriendliesOnly</flattenMode>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>flatten</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>flatten</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>flatten-clean</id>
+                        <phase>clean</phase>
+                        <goals>
+                            <goal>clean</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- 编译时JDK版本 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>${java.version}</source>
+                    <target>${java.version}</target>
+                    <encoding>${project.build.sourceEncoding}</encoding>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <!-- 环境配置 -->
+    <profiles>
+        <profile>
+            <!-- 开发环境 -->
+            <id>dev</id>
+            <activation>
+                <!-- 默认启用该配置 -->
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <properties>
+                <!-- 当前环境 -->
+                <profile.name>dev</profile.name>
+                <!-- Nacos服务地址 -->
+                <nacos.server-addr>10.104.0.106:8848</nacos.server-addr>
+                <!-- Nacos配置中心命名空间，不能使用名称，只能使用ID -->
+                <nacos.namespace>eccbba0e-f4a2-4e18-879e-6287af288600</nacos.namespace>
+                <!-- Nacos配置分组名称 -->
+                <nacos.group>HISTSPARK_CLOUD_GROUP</nacos.group>
+                <!-- Nacos用户名 -->
+                <nacos.username>nacos</nacos.username>
+                <!-- Nacos密码 -->
+                <nacos.password>nacos</nacos.password>
+            </properties>
+        </profile>
+        <!-- 测试环境 -->
+        <profile>
+            <id>test</id>
+            <properties>
+                <!-- 当前环境 -->
+                <profile.name>test</profile.name>
+                <!-- Nacos服务地址 -->
+                <nacos.server-addr>localhost:8848</nacos.server-addr>
+                <!-- Nacos配置中心命名空间，不能使用名称，只能使用ID -->
+                <nacos.namespace></nacos.namespace>
+                <!-- Nacos配置分组名称 -->
+                <nacos.group>SPARK_SERIES_CLOUD_GROUP</nacos.group>
+                <!-- Nacos用户名 -->
+                <nacos.username>nacos</nacos.username>
+                <!-- Nacos密码 -->
+                <nacos.password>nacos</nacos.password>
+            </properties>
+        </profile>
+        <!-- 生产环境 -->
+        <profile>
+            <id>prod</id>
+            <properties>
+                <!-- 当前环境 -->
+                <profile.name>prod</profile.name>
+                <!-- Nacos服务地址 -->
+                <nacos.server-addr>localhost:8848</nacos.server-addr>
+                <!-- Nacos配置中心命名空间，不能使用名称，只能使用ID -->
+                <nacos.namespace></nacos.namespace>
+                <!-- Nacos配置分组名称 -->
+                <nacos.group>SPARK_SERIES_CLOUD_GROUP</nacos.group>
+                <!-- Nacos用户名 -->
+                <nacos.username>nacos</nacos.username>
+                <!-- Nacos密码 -->
+                <nacos.password>nacos</nacos.password>
+            </properties>
+        </profile>
+    </profiles>
+
+</project>

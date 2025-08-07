@@ -1,0 +1,40 @@
+package com.sparkseries.module.avatar.dao;
+
+
+import com.sparkseries.module.avatar.dto.AvatarDTO;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+
+/**
+ * 用户头像信息Mapper
+ */
+@Mapper
+public interface AvatarMapper {
+    /**
+     * 添加头像信息
+     *
+     * @param avatar 头像信息
+     * @return 受影响行数
+     */
+    Integer insertAvatar(@Param("avatar") AvatarDTO avatar);
+
+
+    /**
+     * 修改头像
+     *
+     * @param avatar 头像信息
+     * @return 受影响行数
+     */
+    Integer updateAvatar(@Param("avatar") AvatarDTO avatar);
+
+    /**
+     * 根据用户ID查询头像信息
+     *
+     * @param userId 用户ID
+     * @return 头像信息
+     */
+    String getAvatarAbsolutePathByUserId(@Param("userId") Long userId);
+
+
+
+}
