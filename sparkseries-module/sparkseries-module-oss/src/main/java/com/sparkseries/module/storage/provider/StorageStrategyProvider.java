@@ -56,7 +56,8 @@ public class StorageStrategyProvider {
             try {
                 changeOssService(type, id);
             } catch (Exception e) {
-                log.error("云存储服务启动失败，自动切换到本地存储服务。错误信息: {}", e.getMessage());
+                log.error("云存储服务启动失败，自动切换到本地存储服务 错误信息: {}", e.getMessage());
+                storageMapper.deleteCloudActive();
                 setCurrentStrategy(LOCAL);
                 log.info("已自动切换到本地存储服务");
             }
