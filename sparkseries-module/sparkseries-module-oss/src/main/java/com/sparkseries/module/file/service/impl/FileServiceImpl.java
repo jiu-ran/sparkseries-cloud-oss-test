@@ -1,25 +1,28 @@
 package com.sparkseries.module.file.service.impl;
 
-import static com.sparkseries.common.constant.Constants.AVATAR_PATH_PREFIX;
-
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.core.toolkit.ObjectUtils;
 import com.sparkseries.common.dto.MultipartFileDTO;
+import com.sparkseries.common.enums.StorageTypeEnum;
 import com.sparkseries.common.util.FileUtils;
 import com.sparkseries.common.util.entity.Result;
 import com.sparkseries.common.util.exception.BusinessException;
 import com.sparkseries.module.file.dao.FileMetadataMapper;
 import com.sparkseries.module.file.entity.FileMetadataEntity;
+import com.sparkseries.module.file.entity.FolderMetadataEntity;
 import com.sparkseries.module.file.service.FileService;
 import com.sparkseries.module.file.vo.FilesAndFoldersVO;
 import com.sparkseries.module.storage.provider.StorageStrategyProvider;
 import com.sparkseries.module.storage.service.oss.OssService;
-import java.time.LocalDateTime;
-import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+import static com.sparkseries.common.constant.Constants.AVATAR_PATH_PREFIX;
 
 /**
  * 对象存储服务实现类
@@ -83,69 +86,6 @@ public class FileServiceImpl implements FileService {
     }
 
     /**
-     * 文件存储
-     *
-     * @param file 文件信息
-     * @param path 文件存储路径
-     */
-    public void uploadFile(MultipartFileDTO file, String path) {
-
-        log.info("文件{}开始上传", file);
-
-        // 获取文件名
-        String originalFilename = file.getFilename();
-
-        // 规范文件名
-        originalFilename = FileUtils.normalizeFileName(originalFilename);
-
-        // 判断文件名是否合法
-        FileUtils.isValidFileName(originalFilename);
-
-        // 查询指定路径下该文件是否存在
-        if (metadataMapper.isExistFileByName(originalFilename, path) != 0) {
-            log.error("文件名:{} 路径:{} 文件在该路径下已存在", originalFilename, path);
-            throw new BusinessException(path + "路径下已存在" + originalFilename + "文件");
-        }
-        file.setFilename(originalFilename);
-
-        // 获取文件大小
-        long size = file.getSize();
-        String conversion = FileUtils.conversion(size);
-        file.setStrSize(conversion);
-        // 生成唯一id
-        long id = IdWorker.getId();
-
-        String filename = id + originalFilename;
-
-        String absolutePath = path + filename;
-
-        file.setAbsolutePath(absolutePath);
-
-        file.setId(String.valueOf(id));
-
-        boolean upload = getCurrentStorageService().upload(file);
-        if (!upload) {
-            log.error("文件上传失败");
-            throw new RuntimeException("文件上传失败");
-        }
-        log.info("文件存储服务上传文件成功: {}", absolutePath);
-        // 保存元数据到数据库
-        FileMetadataEntity metadata = new FileMetadataEntity(id, filename, originalFilename, file.getType(), conversion,
-                path, LocalDateTime.now(), getCurrentStorageService().getCurrStorageType());
-
-        Integer rows = metadataMapper.insertFile(metadata);
-
-        if (rows <= 0) {
-            log.error("数据库添加文件元数据失败，文件: {}", absolutePath);
-            throw new BusinessException("数据库添加文件失败");
-        }
-        log.info("文件元数据保存到数据库成功，ID: {}", id);
-
-        log.info("单个文件上传及元数据保存成功，文件名: {}, 绝对路径: {}, ID: {}", originalFilename, absolutePath, id);
-
-    }
-
-    /**
      * 创建文件夹
      *
      * @param path 文件夹路径
@@ -163,9 +103,21 @@ public class FileServiceImpl implements FileService {
 
         log.info("调用文件存储服务创建文件夹: {}", path);
         boolean folder = getCurrentStorageService().createFolder(path);
+
         if (!folder) {
             return Result.error("创建文件夹失败");
         }
+
+        long id = IdWorker.getId();
+        String folderName;
+        String[] split = path.split("/");
+        if (split.length > 1) {
+            folderName = split[split.length - 1];
+        } else {
+            folderName = split[0];
+        }
+        metadataMapper.insertFolder(new FolderMetadataEntity(id, folderName, path, LocalDateTime.now(),
+                getCurrentStorageService().getCurrStorageType()));
         log.info("文件夹创建成功: {}", path);
 
         return Result.ok("创建文件夹成功");
@@ -179,12 +131,13 @@ public class FileServiceImpl implements FileService {
      */
     @Override
     public Result<?> deleteFile(Long id) {
-        FileMetadataEntity file = metadataMapper.getFileMetadataById(id);
+        StorageTypeEnum storageType = getCurrentStorageService().getCurrStorageType();
+        FileMetadataEntity file = metadataMapper.getFileMetadataById(id, storageType);
         if (ObjectUtils.isEmpty(file)) {
             throw new BusinessException("文件不存在,删除失败");
         }
 
-        String filename = file.getFilename();
+        String filename = file.getFileName();
 
         String path = file.getStoragePath();
 
@@ -200,7 +153,7 @@ public class FileServiceImpl implements FileService {
             throw new BusinessException("文件删除失败");
         }
 
-        int rows = metadataMapper.deleteFileById(id);
+        int rows = metadataMapper.deleteFileById(id, storageType);
 
         if (rows <= 0) {
             throw new BusinessException("数据库删除失败");
@@ -219,6 +172,7 @@ public class FileServiceImpl implements FileService {
      */
     @Override
     public Result<?> deleteFolder(String path) {
+        StorageTypeEnum storageType = getCurrentStorageService().getCurrStorageType();
 
         path = FileUtils.normalizePath(path);
 
@@ -233,8 +187,8 @@ public class FileServiceImpl implements FileService {
         if (!deleteFolder) {
             return Result.error("文件夹删除失败");
         }
-        Integer row = metadataMapper.deleteFileByPath(path);
-
+        Integer row = metadataMapper.deleteFileByPath(path, storageType);
+        metadataMapper.deleteFolderByPath(path, storageType);
         if (row < 0) {
             return Result.error("删除失败");
         }
@@ -253,8 +207,8 @@ public class FileServiceImpl implements FileService {
      */
     @Override
     public Result<?> rename(Long id, String newName) {
-
-        FileMetadataEntity metadata = metadataMapper.getFileMetadataById(id);
+        StorageTypeEnum storageType = getCurrentStorageService().getCurrStorageType();
+        FileMetadataEntity metadata = metadataMapper.getFileMetadataById(id, storageType);
 
         if (ObjectUtils.isEmpty(metadata)) {
             throw new BusinessException("文件不存在");
@@ -264,11 +218,11 @@ public class FileServiceImpl implements FileService {
 
         FileUtils.isValidFileName(normalizedFilename);
 
-        String filename = metadata.getFilename();
+        String filename = metadata.getFileName();
 
         String path = metadata.getStoragePath();
 
-        Integer existFileByName = metadataMapper.isExistFileByName(normalizedFilename, path);
+        Integer existFileByName = metadataMapper.isExistFileByName(normalizedFilename, path, storageType);
 
         if (existFileByName > 0) {
             throw new BusinessException("文件名已被使用");
@@ -280,7 +234,7 @@ public class FileServiceImpl implements FileService {
             throw new BusinessException("重命名失败");
         }
 
-        if (metadataMapper.updateFileName(id, id + normalizedFilename, normalizedFilename) <= 0) {
+        if (metadataMapper.updateFileName(id, id + normalizedFilename, normalizedFilename, storageType) <= 0) {
             throw new BusinessException("数据库文件重命名失败");
         }
 
@@ -297,12 +251,12 @@ public class FileServiceImpl implements FileService {
      */
     @Override
     public Result<?> downloadFile(Long id) {
-
-        if (metadataMapper.isExistFileById(id) <= 0) {
+        StorageTypeEnum storageType = getCurrentStorageService().getCurrStorageType();
+        if (metadataMapper.isExistFileById(id, storageType) <= 0) {
             throw new BusinessException("文件不存在");
         }
 
-        FileMetadataEntity file = metadataMapper.getFileMetadataById(id);
+        FileMetadataEntity file = metadataMapper.getFileMetadataById(id, storageType);
 
         if (ObjectUtils.isEmpty(file)) {
             throw new BusinessException("文件不存在");
@@ -310,7 +264,7 @@ public class FileServiceImpl implements FileService {
 
         String originalName = file.getOriginalName();
 
-        String filename = file.getFilename();
+        String filename = file.getFileName();
 
         String path = file.getStoragePath();
 
@@ -333,8 +287,9 @@ public class FileServiceImpl implements FileService {
      */
     @Override
     public ResponseEntity<?> downloadLocalFile(Long id) {
-
-        FileMetadataEntity fileMetadataEntity = metadataMapper.getFileMetadataById(id);
+        StorageTypeEnum storageType = getCurrentStorageService().getCurrStorageType();
+        FileMetadataEntity file = metadataMapper.getFileMetadataById(id, storageType);
+        FileMetadataEntity fileMetadataEntity = metadataMapper.getFileMetadataById(id, storageType);
 
         if (ObjectUtils.isEmpty(fileMetadataEntity)) {
             log.error("[本地存储] 文件不存在");
@@ -375,12 +330,15 @@ public class FileServiceImpl implements FileService {
      */
     @Override
     public Result<?> previewUrl(Long id) {
-        Integer row = metadataMapper.isExistFileById(id);
+        StorageTypeEnum storageType = getCurrentStorageService().getCurrStorageType();
+
+        Integer row = metadataMapper.isExistFileById(id, storageType);
         if (row <= 0) {
             return Result.error("该文件不存在");
         }
-        FileMetadataEntity metadata = metadataMapper.getFileMetadataById(id);
-        String url = getCurrentStorageService().previewFile(metadata.getStoragePath() + metadata.getFilename());
+
+        FileMetadataEntity metadata = metadataMapper.getFileMetadataById(id, storageType);
+        String url = getCurrentStorageService().previewFile(metadata.getStoragePath() + metadata.getFileName());
         log.info("获取url成功");
         return Result.ok(url);
     }
@@ -393,7 +351,9 @@ public class FileServiceImpl implements FileService {
      */
     @Override
     public ResponseEntity<?> previewLocalFile(Long id) {
-        FileMetadataEntity fileMetadataEntity = metadataMapper.getFileMetadataById(id);
+        StorageTypeEnum storageType = getCurrentStorageService().getCurrStorageType();
+
+        FileMetadataEntity fileMetadataEntity = metadataMapper.getFileMetadataById(id, storageType);
 
         if (ObjectUtils.isEmpty(fileMetadataEntity)) {
             log.error("文件不存在");
@@ -402,7 +362,6 @@ public class FileServiceImpl implements FileService {
 
         return getCurrentStorageService().previewLocalFile(fileMetadataEntity);
     }
-
 
     /**
      * 移动文件
@@ -414,7 +373,9 @@ public class FileServiceImpl implements FileService {
     @Override
     public Result<?> moveFile(Long id, String newPath) {
 
-        if (metadataMapper.isExistFileById(id) <= 0) {
+        StorageTypeEnum storageType = getCurrentStorageService().getCurrStorageType();
+
+        if (metadataMapper.isExistFileById(id, storageType) <= 0) {
             throw new BusinessException("该文件不存在");
         }
 
@@ -426,13 +387,14 @@ public class FileServiceImpl implements FileService {
             throw new BusinessException("'avatar/' 文件目录属于系统文件你无权操作");
         }
 
-        FileMetadataEntity metadata = metadataMapper.getFileMetadataById(id);
-        String filename = metadata.getFilename();
+
+        FileMetadataEntity metadata = metadataMapper.getFileMetadataById(id, storageType);
+        String filename = metadata.getFileName();
         String storagePath = metadata.getStoragePath();
         String sourcePath = storagePath + filename;
         String targetPath = newPath + filename;
 
-        if (metadataMapper.isExistFileByName(filename, newPath) > 0) {
+        if (metadataMapper.isExistFileByName(filename, newPath, storageType) > 0) {
             throw new BusinessException("文件名已被使用");
         }
 
@@ -442,11 +404,75 @@ public class FileServiceImpl implements FileService {
             throw new BusinessException("文件移动失败");
         }
 
-        Integer row = metadataMapper.updatePath(id, newPath);
+        Integer row = metadataMapper.updatePath(id, newPath, storageType);
         if (row <= 0) {
             throw new BusinessException("数据库文件移动失败");
         }
         return Result.ok("文件移动成功");
+    }
+
+    /**
+     * 文件存储
+     *
+     * @param file 文件信息
+     * @param path 文件存储路径
+     */
+    public void uploadFile(MultipartFileDTO file, String path) {
+
+        StorageTypeEnum storageType = getCurrentStorageService().getCurrStorageType();
+        log.info("文件{}开始上传", file);
+
+        // 获取文件名
+        String originalFilename = file.getFilename();
+
+        // 规范文件名
+        originalFilename = FileUtils.normalizeFileName(originalFilename);
+
+        // 判断文件名是否合法
+        FileUtils.isValidFileName(originalFilename);
+
+        // 查询指定路径下该文件是否存在
+        if (metadataMapper.isExistFileByName(originalFilename, path, storageType) != 0) {
+            log.error("文件名:{} 路径:{} 文件在该路径下已存在", originalFilename, path);
+            throw new BusinessException(path + "路径下已存在" + originalFilename + "文件");
+        }
+        file.setFilename(originalFilename);
+
+        // 获取文件大小
+        long size = file.getSize();
+        String conversion = FileUtils.conversion(size);
+        file.setStrSize(conversion);
+        // 生成唯一id
+        long id = IdWorker.getId();
+
+        String filename = id + originalFilename;
+
+        String absolutePath = path + filename;
+
+        file.setAbsolutePath(absolutePath);
+
+        file.setId(String.valueOf(id));
+
+        boolean upload = getCurrentStorageService().upload(file);
+        if (!upload) {
+            log.error("文件上传失败");
+            throw new RuntimeException("文件上传失败");
+        }
+        log.info("文件存储服务上传文件成功: {}", absolutePath);
+        // 保存元数据到数据库
+        FileMetadataEntity metadata = new FileMetadataEntity(id, filename, originalFilename, file.getType(), conversion,
+                path, LocalDateTime.now(), getCurrentStorageService().getCurrStorageType());
+
+        Integer rows = metadataMapper.insertFile(metadata);
+
+        if (rows <= 0) {
+            log.error("数据库添加文件元数据失败，文件: {}", absolutePath);
+            throw new BusinessException("数据库添加文件失败");
+        }
+        log.info("文件元数据保存到数据库成功，ID: {}", id);
+
+        log.info("单个文件上传及元数据保存成功，文件名: {}, 绝对路径: {}, ID: {}", originalFilename, absolutePath, id);
+
     }
 
 }

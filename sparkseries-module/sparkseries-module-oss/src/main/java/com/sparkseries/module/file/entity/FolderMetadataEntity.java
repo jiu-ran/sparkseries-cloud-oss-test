@@ -6,29 +6,19 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * 文件元数据信息
- */
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class FileMetadataEntity {
+public class FolderMetadataEntity {
 
     private Long id;
 
-    private String fileName;
+    private String folderName;
 
-    private String originalName;
-
-    private String fileType;
-
-    private String fileSize;
-
-    private String storagePath;
+    private String absolutePath;
 
     private LocalDateTime lastUpdateDate;
 
     private StorageTypeEnum storageType;
-
 
 }

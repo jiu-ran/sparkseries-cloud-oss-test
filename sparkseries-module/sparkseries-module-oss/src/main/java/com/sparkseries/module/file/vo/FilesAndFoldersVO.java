@@ -3,6 +3,7 @@ package com.sparkseries.module.file.vo;
 import lombok.Data;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * 文件和文件夹信息VO
@@ -10,9 +11,9 @@ import java.util.List;
 @Data
 public class FilesAndFoldersVO {
     private List<FileInfoVO> files;
-    private List<FolderInfoVO> folders;
+    private Set<FolderInfoVO> folders;
 
-    public FilesAndFoldersVO(List<FileInfoVO> files, List<FolderInfoVO> folders) {
+    public FilesAndFoldersVO(List<FileInfoVO> files, Set<FolderInfoVO> folders) {
         this.files = files;
         this.folders = folders;
     }

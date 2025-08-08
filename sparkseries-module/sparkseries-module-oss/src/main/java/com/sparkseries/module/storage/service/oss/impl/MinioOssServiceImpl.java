@@ -1,6 +1,8 @@
 package com.sparkseries.module.storage.service.oss.impl;
 
 import static com.sparkseries.common.constant.Constants.MINIO_SIZE_THRESHOLD;
+import static com.sparkseries.common.enums.StorageTypeEnum.COS;
+import static com.sparkseries.common.enums.StorageTypeEnum.MINIO;
 
 import com.sparkseries.common.dto.MultipartFileDTO;
 import com.sparkseries.common.enums.StorageTypeEnum;
@@ -24,11 +26,10 @@ import io.minio.http.Method;
 import io.minio.messages.Item;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.net.URLCodec;
 import org.springframework.http.ResponseEntity;
@@ -430,11 +431,11 @@ public class MinioOssServiceImpl implements OssService {
     public FilesAndFoldersVO listFiles(String path) {
         log.info("[列出文件操作] 开始获取目录列表 - 路径: {} (非递归)", path);
 
-        List<FileInfoVO> fileInfos = fileMetadataMapper.listMinioMetadataByPath(path);
+        List<FileInfoVO> fileInfos = fileMetadataMapper.listFileByPath(path,MINIO);
 
-        List<FolderInfoVO> folders = fileMetadataMapper.listMinioFolderByPath(path).stream()
-                .map(s -> new FolderInfoVO(s.replace(path, "").split("/")[0], path)).distinct().toList();
-
+        Set<FolderInfoVO> folders = fileMetadataMapper.listFolderByPath(path,MINIO).stream()
+                .map(s -> new FolderInfoVO(s.replace(path, "").split("/")[0], path)).collect(Collectors.toSet());
+        fileMetadataMapper.listFolderNameByPath(path, COS).stream().map(s -> new FolderInfoVO(s, path)).forEach(folders::add);
         return new FilesAndFoldersVO(fileInfos, folders);
     }
 
@@ -559,6 +560,6 @@ public class MinioOssServiceImpl implements OssService {
      */
     @Override
     public StorageTypeEnum getCurrStorageType() {
-        return StorageTypeEnum.MINIO;
+        return MINIO;
     }
 }

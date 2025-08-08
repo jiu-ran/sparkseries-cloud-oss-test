@@ -1,6 +1,8 @@
 package com.sparkseries.module.storage.service.oss.impl;
 
 import static com.sparkseries.common.constant.Constants.KODO_SIZE_THRESHOLD;
+import static com.sparkseries.common.enums.StorageTypeEnum.COS;
+import static com.sparkseries.common.enums.StorageTypeEnum.KODO;
 
 import com.qiniu.common.QiniuException;
 import com.qiniu.http.Response;
@@ -28,6 +30,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.CharEncoding;
 import org.apache.commons.codec.EncoderException;
@@ -549,10 +554,10 @@ public class KodoOssServiceImpl implements OssService {
     @Override
     public FilesAndFoldersVO listFiles(String path) {
         log.info("[列出文件操作] 开始列出路径下的文件和文件夹: {}", path);
-        List<FileInfoVO> files = fileMetadataMapper.listKodoMetadataByPath(path);
-        List<FolderInfoVO> folders = fileMetadataMapper.listKodoFolderByPath(path).stream()
-                .map(s -> new FolderInfoVO(s.replace(path, "").split("/")[0], path)).distinct().toList();
-
+        List<FileInfoVO> files = fileMetadataMapper.listFileByPath(path,KODO);
+        Set<FolderInfoVO> folders = fileMetadataMapper.listFolderByPath(path,KODO).stream()
+                .map(s -> new FolderInfoVO(s.replace(path, "").split("/")[0], path)).collect(Collectors.toSet());
+        fileMetadataMapper.listFolderNameByPath(path, COS).stream().map(s -> new FolderInfoVO(s, path)).forEach(folders::add);
         return new FilesAndFoldersVO(files, folders);
     }
 
@@ -705,7 +710,7 @@ public class KodoOssServiceImpl implements OssService {
      */
     @Override
     public StorageTypeEnum getCurrStorageType() {
-        return StorageTypeEnum.KODO;
+        return KODO;
     }
 
 }

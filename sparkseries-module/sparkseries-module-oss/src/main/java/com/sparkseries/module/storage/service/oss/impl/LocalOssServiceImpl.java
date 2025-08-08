@@ -1,7 +1,5 @@
 package com.sparkseries.module.storage.service.oss.impl;
 
-import static com.sparkseries.common.constant.Constants.LOCAL_SIZE_THRESHOLD;
-
 import com.sparkseries.common.dto.MultipartFileDTO;
 import com.sparkseries.common.enums.StorageTypeEnum;
 import com.sparkseries.common.util.exception.BusinessException;
@@ -11,15 +9,6 @@ import com.sparkseries.module.file.vo.FileInfoVO;
 import com.sparkseries.module.file.vo.FilesAndFoldersVO;
 import com.sparkseries.module.file.vo.FolderInfoVO;
 import com.sparkseries.module.storage.service.oss.OssService;
-import java.io.IOException;
-import java.nio.file.CopyOption;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
-import java.util.ArrayList;
-import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.EncoderException;
 import org.apache.commons.codec.net.URLCodec;
@@ -30,6 +19,15 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+
+import java.io.IOException;
+import java.nio.file.*;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import static com.sparkseries.common.constant.Constants.LOCAL_SIZE_THRESHOLD;
+import static com.sparkseries.common.enums.StorageTypeEnum.LOCAL;
 
 /**
  * 本地文件存储服务实现类
@@ -110,210 +108,6 @@ public class LocalOssServiceImpl implements OssService {
             log.error("本地存储文件上传失败 - 文件名: {}, 路径: {}, 耗时: {} ms, 错误信息: {}",
                     originalFileName, fullPath, duration, e.getMessage(), e);
             throw new BusinessException("本地保存失败: " + e.getMessage());
-        }
-    }
-
-    /**
-     * 上传小文件（小于分块阈值）
-     *
-     * @param file       文件信息
-     * @param targetPath 目标路径
-     * @return 上传是否成功
-     */
-    private boolean uploadSmallFile(MultipartFileDTO file, Path targetPath) {
-        Path tempPath = null;
-        long startTime = System.currentTimeMillis();
-        log.debug("开始小文件上传 - 文件名: {}, 大小: {} KB", file.getFilename(), file.getSize() / 1024);
-
-        try {
-            // 使用临时文件确保原子性操作
-            log.debug("创建临时文件");
-            tempPath = createTempFile(targetPath);
-            log.debug("临时文件创建成功: {}", tempPath);
-
-            // 直接写入临时文件
-            log.debug("开始写入文件数据到临时文件");
-            try (var inputStream = file.getInputStream();
-                    var outputStream = Files.newOutputStream(tempPath, StandardOpenOption.CREATE,
-                            StandardOpenOption.WRITE)) {
-                inputStream.transferTo(outputStream);
-            }
-            log.debug("文件数据写入临时文件完成");
-
-            // 验证文件完整性
-            log.debug("验证文件完整性");
-            validateUploadedFile(tempPath, file.getSize());
-
-            // 原子性移动到目标位置
-            log.debug("原子性移动文件到目标位置");
-            Files.move(tempPath, targetPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-
-            long duration = System.currentTimeMillis() - startTime;
-            log.info("小文件上传成功 - 文件名: {}, 大小: {} KB, 耗时: {} ms",
-                    file.getFilename(), file.getSize() / 1024, duration);
-            return true;
-
-        } catch (Exception e) {
-            long duration = System.currentTimeMillis() - startTime;
-            log.error("小文件上传失败 - 文件名: {}, 耗时: {} ms, 错误信息: {}",
-                    file.getFilename(), duration, e.getMessage(), e);
-            // 清理临时文件
-            cleanupTempFile(tempPath);
-            throw new BusinessException("小文件上传失败: " + e.getMessage());
-        }
-    }
-
-    /**
-     * 上传大文件（大于分块阈值）
-     *
-     * @param file       文件信息
-     * @param targetPath 目标路径
-     * @return 上传是否成功
-     */
-    private boolean uploadLargeFile(MultipartFileDTO file, Path targetPath) {
-        Path tempPath = null;
-        long startTime = System.currentTimeMillis();
-        log.debug("开始大文件分块上传 - 文件名: {}, 大小: {} MB",
-                file.getFilename(), file.getSize() / (1024 * 1024));
-
-        try {
-            // 使用临时文件确保原子性操作
-            log.debug("创建临时文件");
-            tempPath = createTempFile(targetPath);
-            log.debug("临时文件创建成功: {}", tempPath);
-
-            // 分块写入大文件（8KB缓冲区）
-            byte[] buffer = new byte[8192];
-            int bytesRead;
-            long totalBytesWritten = 0;
-            long lastProgressTime = System.currentTimeMillis();
-
-            log.debug("开始分块写入大文件，缓冲区大小: {} KB", buffer.length / 1024);
-            try (var inputStream = file.getInputStream();
-                    var outputStream = Files.newOutputStream(tempPath, StandardOpenOption.CREATE,
-                            StandardOpenOption.WRITE)) {
-
-                while ((bytesRead = inputStream.read(buffer)) != -1) {
-                    outputStream.write(buffer, 0, bytesRead);
-                    totalBytesWritten += bytesRead;
-
-                    // 定期记录进度（每10MB或每5秒）
-                    long currentTime = System.currentTimeMillis();
-                    if (totalBytesWritten % (10 * 1024 * 1024) == 0 ||
-                            (currentTime - lastProgressTime) > 5000) {
-                        double progress = (double) totalBytesWritten / file.getSize() * 100;
-                        log.debug("大文件上传进度: {} MB / {} MB ({:.1f}%)",
-                                totalBytesWritten / (1024 * 1024),
-                                file.getSize() / (1024 * 1024), progress);
-                        lastProgressTime = currentTime;
-                    }
-                }
-            }
-            log.debug("大文件数据写入完成，总计: {} MB", totalBytesWritten / (1024 * 1024));
-
-            // 验证文件完整性
-            log.debug("验证大文件完整性");
-            validateUploadedFile(tempPath, file.getSize());
-
-            // 原子性移动到目标位置
-            log.debug("原子性移动大文件到目标位置");
-            Files.move(tempPath, targetPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-
-            long duration = System.currentTimeMillis() - startTime;
-            log.info("大文件分块上传成功 - 文件名: {}, 大小: {} MB, 耗时: {} ms",
-                    file.getFilename(), file.getSize() / (1024 * 1024), duration);
-            return true;
-
-        } catch (Exception e) {
-            long duration = System.currentTimeMillis() - startTime;
-            log.error("大文件分块上传失败 - 文件名: {}, 耗时: {} ms, 错误信息: {}",
-                    file.getFilename(), duration, e.getMessage(), e);
-            // 清理临时文件
-            cleanupTempFile(tempPath);
-            throw new BusinessException("大文件分块上传失败: " + e.getMessage());
-        }
-    }
-
-    /**
-     * 验证文件大小
-     *
-     * @param fileSize 文件大小
-     */
-    private void validateFileSize(long fileSize) {
-        // 检查可用磁盘空间
-        try {
-            Path basePathObj = Paths.get(basePath);
-            long usableSpace = Files.getFileStore(basePathObj).getUsableSpace();
-
-            if (fileSize > usableSpace) {
-                throw new BusinessException("磁盘空间不足，无法保存文件");
-            }
-
-            // 预留一些空间（至少保留100MB）
-            long reservedSpace = 100 * 1024 * 1024;
-            if (fileSize > (usableSpace - reservedSpace)) {
-                log.warn("磁盘空间即将不足，当前可用空间: {} MB", usableSpace / (1024 * 1024));
-            }
-
-        } catch (IOException e) {
-            log.warn("无法检查磁盘空间: {}", e.getMessage());
-        }
-    }
-
-    /**
-     * 创建目录（如果不存在）
-     *
-     * @param parentDir 父目录路径
-     * @throws IOException 如果创建目录失败
-     */
-    private void createDirectoriesIfNotExists(Path parentDir) throws IOException {
-        if (parentDir != null && !Files.exists(parentDir)) {
-            Files.createDirectories(parentDir);
-            log.debug("创建目录: {}", parentDir);
-        }
-    }
-
-    /**
-     * 创建临时文件
-     *
-     * @param targetPath 目标文件路径
-     * @return 临时文件路径
-     * @throws IOException 如果创建临时文件失败
-     */
-    private Path createTempFile(Path targetPath) throws IOException {
-        Path parentDir = targetPath.getParent();
-        String fileName = targetPath.getFileName().toString();
-        return Files.createTempFile(parentDir, fileName + ".", ".tmp");
-    }
-
-    /**
-     * 验证上传的文件
-     *
-     * @param filePath     文件路径
-     * @param expectedSize 期望的文件大小
-     * @throws IOException 如果文件大小不匹配
-     */
-    private void validateUploadedFile(Path filePath, long expectedSize) throws IOException {
-        long actualSize = Files.size(filePath);
-        if (actualSize != expectedSize) {
-            throw new IOException(
-                    String.format("文件大小不匹配，期望: %d bytes, 实际: %d bytes", expectedSize, actualSize));
-        }
-    }
-
-    /**
-     * 清理临时文件
-     *
-     * @param tempPath 临时文件路径
-     */
-    private void cleanupTempFile(Path tempPath) {
-        if (tempPath != null && Files.exists(tempPath)) {
-            try {
-                Files.delete(tempPath);
-                log.debug("清理临时文件: {}", tempPath);
-            } catch (IOException e) {
-                log.warn("清理临时文件失败: {}", e.getMessage());
-            }
         }
     }
 
@@ -521,13 +315,13 @@ public class LocalOssServiceImpl implements OssService {
      */
     @Override
     public ResponseEntity<?> downLocalFile(FileMetadataEntity fileMetadataEntity) {
-        log.info("[下载文件操作] 开始下载本地文件: {}", fileMetadataEntity.getFilename());
+        log.info("[下载文件操作] 开始下载本地文件: {}", fileMetadataEntity.getFileName());
 
         String path = fileMetadataEntity.getStoragePath();
 
         String originalName = fileMetadataEntity.getOriginalName();
 
-        String filename = fileMetadataEntity.getFilename();
+        String filename = fileMetadataEntity.getFileName();
 
         path = basePath + path;
 
@@ -623,53 +417,13 @@ public class LocalOssServiceImpl implements OssService {
     @Override
     public FilesAndFoldersVO listFiles(String path) {
         log.info("[列出文件操作] 开始列出目录文件: {}", path);
-        String tempPath = path;
-        path = basePath + path;
-        Path dir = Paths.get(path);
 
-        List<FolderInfoVO> folders = new ArrayList<>();
-        long startTime = System.currentTimeMillis();
-        log.info("本地存储开始列举目录内容 - 目录路径: {}", path);
+        List<FileInfoVO> fileInfos = fileMetadataMapper.listFileByPath(path, LOCAL);
 
-        if (!Files.exists(dir)) {
-            log.warn("目录列举失败，目录不存在: {}", path);
-            throw new BusinessException("该目录不存在");
-        }
-
-        if (!Files.isDirectory(dir)) {
-            log.warn("路径不是目录: {}", path);
-            throw new BusinessException("指定路径不是目录");
-        }
-
-
-        List<FileInfoVO> files = fileMetadataMapper.listLocalMetadataByPath(path);
-
-        try (var stream = Files.list(dir)) {
-            List<Path> list = stream.toList();
-            int fileCount = 0;
-            int folderCount = 0;
-            long totalSize = 0;
-
-            log.debug("开始遍历目录内容，共 {} 个项目", list.size());
-            for (Path d : list) {
-                if (Files.isDirectory(d)) {
-                    folders.add(new FolderInfoVO(d.toAbsolutePath().toString()));
-                    folderCount++;
-                }
-            }
-
-            FilesAndFoldersVO result = new FilesAndFoldersVO(files, folders);
-            long duration = System.currentTimeMillis() - startTime;
-            log.info("本地存储目录列举完成 - 目录: {}, 文件数: {}, 文件夹数: {}, 总大小: {} bytes, 耗时: {} ms",
-                    path, fileCount, folderCount, totalSize, duration);
-            return result;
-        } catch (IOException e) {
-            long duration = System.currentTimeMillis() - startTime;
-            log.error("[列出文件操作] 列出文件失败: {}", e.getMessage(), e);
-            log.error("本地存储目录列举失败 - 目录: {}, 耗时: {} ms, 错误信息: {}",
-                    path, duration, e.getMessage(), e);
-            throw new RuntimeException(e);
-        }
+        Set<FolderInfoVO> folders = fileMetadataMapper.listFolderByPath(path, LOCAL).stream()
+                .map(s -> new FolderInfoVO(s.replace(path, "").split("/")[0], path)).collect(Collectors.toSet());
+        fileMetadataMapper.listFolderNameByPath(path, LOCAL).stream().map(s -> new FolderInfoVO(s, path)).forEach(folders::add);
+        return new FilesAndFoldersVO(fileInfos, folders);
     }
 
     /**
@@ -682,6 +436,63 @@ public class LocalOssServiceImpl implements OssService {
     @Deprecated
     public String previewFile(String absolutePath) {
         return "";
+    }
+
+    /**
+     * 预览本地文件
+     *
+     * @param fileMetadataEntity 文件元数据
+     * @return 文件预览响应实体
+     */
+    @Override
+    public ResponseEntity<?> previewLocalFile(FileMetadataEntity fileMetadataEntity) {
+
+        String path = fileMetadataEntity.getStoragePath();
+
+        String originalName = fileMetadataEntity.getOriginalName();
+
+        String filename = fileMetadataEntity.getFileName();
+
+        path = basePath + path;
+        try {
+            URLCodec codec = new URLCodec();
+            Path filePath = Paths.get(path, filename);
+            String contentType = Files.probeContentType(filePath);
+            String finalContentType = contentType.startsWith("text/") ? contentType + ";charset=UTF-8" : contentType;
+            Resource resource = new UrlResource(filePath.toUri());
+            ResponseEntity<Resource> body = ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(finalContentType))
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename*=UTF-8''"
+                            + codec.encode(originalName))
+                    .body(resource);
+            log.info("文件预览url获取成功");
+            return body;
+        } catch (IOException | EncoderException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * 预览本地头像文件
+     *
+     * @param absolutePath 头像文件的绝对路径
+     * @return 包含头像资源的ResponseEntity
+     * @throws RuntimeException 如果文件处理发生错误
+     */
+    @Override
+    public ResponseEntity<?> previewLocalAvatar(String absolutePath) {
+        try {
+
+            Path filePath = Paths.get(basePath, absolutePath);
+            String contentType = Files.probeContentType(filePath);
+            Resource resource = new UrlResource(filePath.toUri());
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(contentType))
+                    .body(resource);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**
@@ -758,63 +569,210 @@ public class LocalOssServiceImpl implements OssService {
      */
     @Override
     public StorageTypeEnum getCurrStorageType() {
-        return StorageTypeEnum.LOCAL;
+        return LOCAL;
     }
 
     /**
-     * 预览本地文件
+     * 上传小文件（小于分块阈值）
      *
-     * @param fileMetadataEntity 文件元数据
-     * @return 文件预览响应实体
+     * @param file       文件信息
+     * @param targetPath 目标路径
+     * @return 上传是否成功
      */
-    @Override
-    public ResponseEntity<?> previewLocalFile(FileMetadataEntity fileMetadataEntity) {
+    private boolean uploadSmallFile(MultipartFileDTO file, Path targetPath) {
+        Path tempPath = null;
+        long startTime = System.currentTimeMillis();
+        log.debug("开始小文件上传 - 文件名: {}, 大小: {} KB", file.getFilename(), file.getSize() / 1024);
 
-        String path = fileMetadataEntity.getStoragePath();
-
-        String originalName = fileMetadataEntity.getOriginalName();
-
-        String filename = fileMetadataEntity.getFilename();
-
-        path = basePath + path;
         try {
-            URLCodec codec = new URLCodec();
-            Path filePath = Paths.get(path, filename);
-            String contentType = Files.probeContentType(filePath);
-            String finalContentType = contentType.startsWith("text/") ? contentType + ";charset=UTF-8" : contentType;
-            Resource resource = new UrlResource(filePath.toUri());
-            ResponseEntity<Resource> body = ResponseEntity.ok()
-                    .contentType(MediaType.parseMediaType(finalContentType))
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename*=UTF-8''"
-                            + codec.encode(originalName))
-                    .body(resource);
-            log.info("文件预览url获取成功");
-            return body;
-        } catch (IOException | EncoderException e) {
-            throw new RuntimeException(e);
+            // 使用临时文件确保原子性操作
+            log.debug("创建临时文件");
+            tempPath = createTempFile(targetPath);
+            log.debug("临时文件创建成功: {}", tempPath);
+
+            // 直接写入临时文件
+            log.debug("开始写入文件数据到临时文件");
+            try (var inputStream = file.getInputStream();
+                 var outputStream = Files.newOutputStream(tempPath, StandardOpenOption.CREATE,
+                         StandardOpenOption.WRITE)) {
+                inputStream.transferTo(outputStream);
+            }
+            log.debug("文件数据写入临时文件完成");
+
+            // 验证文件完整性
+            log.debug("验证文件完整性");
+            validateUploadedFile(tempPath, file.getSize());
+
+            // 原子性移动到目标位置
+            log.debug("原子性移动文件到目标位置");
+            Files.move(tempPath, targetPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+
+            long duration = System.currentTimeMillis() - startTime;
+            log.info("小文件上传成功 - 文件名: {}, 大小: {} KB, 耗时: {} ms",
+                    file.getFilename(), file.getSize() / 1024, duration);
+            return true;
+
+        } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            log.error("小文件上传失败 - 文件名: {}, 耗时: {} ms, 错误信息: {}",
+                    file.getFilename(), duration, e.getMessage(), e);
+            // 清理临时文件
+            cleanupTempFile(tempPath);
+            throw new BusinessException("小文件上传失败: " + e.getMessage());
         }
     }
 
     /**
-     * 预览本地头像文件
+     * 上传大文件（大于分块阈值）
      *
-     * @param absolutePath 头像文件的绝对路径
-     * @return 包含头像资源的ResponseEntity
-     * @throws RuntimeException 如果文件处理发生错误
+     * @param file       文件信息
+     * @param targetPath 目标路径
+     * @return 上传是否成功
      */
-    @Override
-    public ResponseEntity<?> previewLocalAvatar(String absolutePath) {
+    private boolean uploadLargeFile(MultipartFileDTO file, Path targetPath) {
+        Path tempPath = null;
+        long startTime = System.currentTimeMillis();
+        log.debug("开始大文件分块上传 - 文件名: {}, 大小: {} MB",
+                file.getFilename(), file.getSize() / (1024 * 1024));
+
         try {
+            // 使用临时文件确保原子性操作
+            log.debug("创建临时文件");
+            tempPath = createTempFile(targetPath);
+            log.debug("临时文件创建成功: {}", tempPath);
 
-            Path filePath = Paths.get(basePath, absolutePath);
-            String contentType = Files.probeContentType(filePath);
-            Resource resource = new UrlResource(filePath.toUri());
+            // 分块写入大文件（8KB缓冲区）
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+            long totalBytesWritten = 0;
+            long lastProgressTime = System.currentTimeMillis();
 
-            return ResponseEntity.ok()
-                    .contentType(MediaType.parseMediaType(contentType))
-                    .body(resource);
+            log.debug("开始分块写入大文件，缓冲区大小: {} KB", buffer.length / 1024);
+            try (var inputStream = file.getInputStream();
+                 var outputStream = Files.newOutputStream(tempPath, StandardOpenOption.CREATE,
+                         StandardOpenOption.WRITE)) {
+
+                while ((bytesRead = inputStream.read(buffer)) != -1) {
+                    outputStream.write(buffer, 0, bytesRead);
+                    totalBytesWritten += bytesRead;
+
+                    // 定期记录进度（每10MB或每5秒）
+                    long currentTime = System.currentTimeMillis();
+                    if (totalBytesWritten % (10 * 1024 * 1024) == 0 ||
+                            (currentTime - lastProgressTime) > 5000) {
+                        double progress = (double) totalBytesWritten / file.getSize() * 100;
+                        log.debug("大文件上传进度: {} MB / {} MB ({:.1f}%)",
+                                totalBytesWritten / (1024 * 1024),
+                                file.getSize() / (1024 * 1024), progress);
+                        lastProgressTime = currentTime;
+                    }
+                }
+            }
+            log.debug("大文件数据写入完成，总计: {} MB", totalBytesWritten / (1024 * 1024));
+
+            // 验证文件完整性
+            log.debug("验证大文件完整性");
+            validateUploadedFile(tempPath, file.getSize());
+
+            // 原子性移动到目标位置
+            log.debug("原子性移动大文件到目标位置");
+            Files.move(tempPath, targetPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+
+            long duration = System.currentTimeMillis() - startTime;
+            log.info("大文件分块上传成功 - 文件名: {}, 大小: {} MB, 耗时: {} ms",
+                    file.getFilename(), file.getSize() / (1024 * 1024), duration);
+            return true;
+
+        } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            log.error("大文件分块上传失败 - 文件名: {}, 耗时: {} ms, 错误信息: {}",
+                    file.getFilename(), duration, e.getMessage(), e);
+            // 清理临时文件
+            cleanupTempFile(tempPath);
+            throw new BusinessException("大文件分块上传失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 验证文件大小
+     *
+     * @param fileSize 文件大小
+     */
+    private void validateFileSize(long fileSize) {
+        // 检查可用磁盘空间
+        try {
+            Path basePathObj = Paths.get(basePath);
+            long usableSpace = Files.getFileStore(basePathObj).getUsableSpace();
+
+            if (fileSize > usableSpace) {
+                throw new BusinessException("磁盘空间不足，无法保存文件");
+            }
+
+            // 预留一些空间（至少保留100MB）
+            long reservedSpace = 100 * 1024 * 1024;
+            if (fileSize > (usableSpace - reservedSpace)) {
+                log.warn("磁盘空间即将不足，当前可用空间: {} MB", usableSpace / (1024 * 1024));
+            }
+
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            log.warn("无法检查磁盘空间: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * 创建目录（如果不存在）
+     *
+     * @param parentDir 父目录路径
+     * @throws IOException 如果创建目录失败
+     */
+    private void createDirectoriesIfNotExists(Path parentDir) throws IOException {
+        if (parentDir != null && !Files.exists(parentDir)) {
+            Files.createDirectories(parentDir);
+            log.debug("创建目录: {}", parentDir);
+        }
+    }
+
+    /**
+     * 创建临时文件
+     *
+     * @param targetPath 目标文件路径
+     * @return 临时文件路径
+     * @throws IOException 如果创建临时文件失败
+     */
+    private Path createTempFile(Path targetPath) throws IOException {
+        Path parentDir = targetPath.getParent();
+        String fileName = targetPath.getFileName().toString();
+        return Files.createTempFile(parentDir, fileName + ".", ".tmp");
+    }
+
+    /**
+     * 验证上传的文件
+     *
+     * @param filePath     文件路径
+     * @param expectedSize 期望的文件大小
+     * @throws IOException 如果文件大小不匹配
+     */
+    private void validateUploadedFile(Path filePath, long expectedSize) throws IOException {
+        long actualSize = Files.size(filePath);
+        if (actualSize != expectedSize) {
+            throw new IOException(
+                    String.format("文件大小不匹配，期望: %d bytes, 实际: %d bytes", expectedSize, actualSize));
+        }
+    }
+
+    /**
+     * 清理临时文件
+     *
+     * @param tempPath 临时文件路径
+     */
+    private void cleanupTempFile(Path tempPath) {
+        if (tempPath != null && Files.exists(tempPath)) {
+            try {
+                Files.delete(tempPath);
+                log.debug("清理临时文件: {}", tempPath);
+            } catch (IOException e) {
+                log.warn("清理临时文件失败: {}", e.getMessage());
+            }
         }
     }
 

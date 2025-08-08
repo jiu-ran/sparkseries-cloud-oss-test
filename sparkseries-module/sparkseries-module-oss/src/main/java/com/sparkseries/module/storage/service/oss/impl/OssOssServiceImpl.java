@@ -1,26 +1,9 @@
 package com.sparkseries.module.storage.service.oss.impl;
 
-import static com.sparkseries.common.constant.Constants.OSS_SIZE_THRESHOLD;
 
 import com.aliyun.oss.HttpMethod;
 import com.aliyun.oss.OSS;
-import com.aliyun.oss.model.AbortMultipartUploadRequest;
-import com.aliyun.oss.model.CompleteMultipartUploadRequest;
-import com.aliyun.oss.model.CopyObjectRequest;
-import com.aliyun.oss.model.DeleteObjectsRequest;
-import com.aliyun.oss.model.DeleteObjectsResult;
-import com.aliyun.oss.model.GeneratePresignedUrlRequest;
-import com.aliyun.oss.model.InitiateMultipartUploadRequest;
-import com.aliyun.oss.model.InitiateMultipartUploadResult;
-import com.aliyun.oss.model.ListObjectsRequest;
-import com.aliyun.oss.model.OSSObjectSummary;
-import com.aliyun.oss.model.ObjectListing;
-import com.aliyun.oss.model.ObjectMetadata;
-import com.aliyun.oss.model.PartETag;
-import com.aliyun.oss.model.PutObjectRequest;
-import com.aliyun.oss.model.ResponseHeaderOverrides;
-import com.aliyun.oss.model.UploadPartRequest;
-import com.aliyun.oss.model.UploadPartResult;
+import com.aliyun.oss.model.*;
 import com.sparkseries.common.dto.MultipartFileDTO;
 import com.sparkseries.common.enums.StorageTypeEnum;
 import com.sparkseries.common.util.exception.BusinessException;
@@ -31,6 +14,9 @@ import com.sparkseries.module.file.vo.FilesAndFoldersVO;
 import com.sparkseries.module.file.vo.FolderInfoVO;
 import com.sparkseries.module.storage.pool.OssClientPool;
 import com.sparkseries.module.storage.service.oss.OssService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -38,19 +24,13 @@ import java.net.URL;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.Date;
-import java.util.List;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.*;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
+import java.util.stream.Collectors;
+
+import static com.sparkseries.common.constant.Constants.OSS_SIZE_THRESHOLD;
+import static com.sparkseries.common.enums.StorageTypeEnum.COS;
 
 /**
  * 阿里云文件管理
@@ -109,28 +89,6 @@ public class OssOssServiceImpl implements OssService {
         }
     }
 
-
-    private boolean uploadSmallFile(OSS client, MultipartFileDTO file) {
-        try (InputStream inputStream = file.getInputStream()) {
-            client.putObject(bucketName, file.getAbsolutePath(), inputStream, null);
-            log.info("小文件上传成功: key={}, size={}", file.getAbsolutePath(), file.getSize());
-            return true;
-        } catch (Exception e) {
-            throw new BusinessException("小文件上传失败: " + e.getMessage());
-        }
-    }
-
-    private boolean uploadLargeFile(OSS client, MultipartFileDTO file) {
-        try {
-            uploadFileByMultipart(client, file.getInputStream(), file.getSize(), bucketName,
-                    file.getAbsolutePath(), null);
-            log.info("大文件上传成功: key={}, size={}", file.getAbsolutePath(), file.getSize());
-            return true;
-        } catch (Exception e) {
-            throw new BusinessException("大文件上传失败: " + e.getMessage());
-        }
-    }
-
     @Override
     public boolean uploadAvatar(MultipartFileDTO avatar) {
         log.info("[上传头像操作] 开始头像上传到OSS: 文件名='{}', 大小={} bytes, 目标路径='{}'",
@@ -149,7 +107,6 @@ public class OssOssServiceImpl implements OssService {
 
         return result;
     }
-
 
     /**
      * 在OSS中创建文件夹
@@ -395,14 +352,13 @@ public class OssOssServiceImpl implements OssService {
     public FilesAndFoldersVO listFiles(String path) {
         log.info("[列出文件操作] 开始列出路径下的文件和文件夹: {}", path);
 
-        List<FileInfoVO> fileInfos = fileMetadataMapper.listOssMetadataByPath(path);
+        List<FileInfoVO> fileInfos = fileMetadataMapper.listFileByPath(path, StorageTypeEnum.OSS);
 
-        List<FolderInfoVO> folders = fileMetadataMapper.listOssFolderByPath(path).stream()
-                .map(s -> new FolderInfoVO(s.replace(path, "").split("/")[0], path)).distinct().toList();
-
+        Set<FolderInfoVO> folders = fileMetadataMapper.listFolderByPath(path, StorageTypeEnum.OSS).stream()
+                .map(s -> new FolderInfoVO(s.replace(path, "").split("/")[0], path)).collect(Collectors.toSet());
+        fileMetadataMapper.listFolderNameByPath(path, COS).stream().map(s -> new FolderInfoVO(s, path)).forEach(folders::add);
         return new FilesAndFoldersVO(fileInfos, folders);
     }
-
 
     /**
      * 生成文件的预览URL
@@ -519,6 +475,26 @@ public class OssOssServiceImpl implements OssService {
         return StorageTypeEnum.OSS;
     }
 
+    private boolean uploadSmallFile(OSS client, MultipartFileDTO file) {
+        try (InputStream inputStream = file.getInputStream()) {
+            client.putObject(bucketName, file.getAbsolutePath(), inputStream, null);
+            log.info("小文件上传成功: key={}, size={}", file.getAbsolutePath(), file.getSize());
+            return true;
+        } catch (Exception e) {
+            throw new BusinessException("小文件上传失败: " + e.getMessage());
+        }
+    }
+
+    private boolean uploadLargeFile(OSS client, MultipartFileDTO file) {
+        try {
+            uploadFileByMultipart(client, file.getInputStream(), file.getSize(), bucketName,
+                    file.getAbsolutePath(), null);
+            log.info("大文件上传成功: key={}, size={}", file.getAbsolutePath(), file.getSize());
+            return true;
+        } catch (Exception e) {
+            throw new BusinessException("大文件上传失败: " + e.getMessage());
+        }
+    }
 
     /**
      * 分片上传文件到 OSS
@@ -532,12 +508,11 @@ public class OssOssServiceImpl implements OssService {
      * @throws Exception 如果上传失败
      */
     public void uploadFileByMultipart(OSS client, InputStream inputStream, long fileSize,
-            String bucketName,
-            String objectKey, ObjectMetadata metadata) throws Exception {
+                                      String bucketName,
+                                      String objectKey, ObjectMetadata metadata) throws Exception {
         long partSize = calculatePartSize(fileSize);
         int partCount = (int) Math.ceil((double) fileSize / partSize);
-        log.info("开始分片上传: 文件大小={}, 分片大小={}, 分片数量={}", fileSize, partSize,
-                partCount);
+        log.info("开始分片上传: 文件大小={}, 分片大小={}, 分片数量={}", fileSize, partSize, partCount);
 
         InitiateMultipartUploadRequest initiateRequest = new InitiateMultipartUploadRequest(
                 bucketName, objectKey);
@@ -551,8 +526,7 @@ public class OssOssServiceImpl implements OssService {
         BlockingQueue<Runnable> workQueue = new ArrayBlockingQueue<>(partCount);
         ThreadPoolExecutor executorService = new ThreadPoolExecutor(
                 corePoolSize, maxPoolSize, 60L, TimeUnit.SECONDS, workQueue,
-                new ThreadPoolExecutor.CallerRunsPolicy()
-        );
+                new ThreadPoolExecutor.CallerRunsPolicy());
 
         List<CompletableFuture<PartETag>> futures = new ArrayList<>();
         AtomicInteger uploadedParts = new AtomicInteger(0);

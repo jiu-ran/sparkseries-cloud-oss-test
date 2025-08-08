@@ -2,6 +2,7 @@ package com.sparkseries.module.storage.service.oss.impl;
 
 import static com.qcloud.cos.http.HttpMethodName.GET;
 import static com.sparkseries.common.constant.Constants.COS_SIZE_THRESHOLD;
+import static com.sparkseries.common.enums.StorageTypeEnum.COS;
 
 import com.qcloud.cos.COSClient;
 import com.qcloud.cos.event.ProgressEventType;
@@ -37,6 +38,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -44,6 +46,8 @@ import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.CharEncoding;
 import org.apache.commons.codec.net.URLCodec;
@@ -683,10 +687,11 @@ public class CosOssServiceImpl implements OssService {
 
         log.info("COS 开始列出文件和文件夹 - 路径: {}", path);
 
-        List<FileInfoVO> fileInfos = fileMetadataMapper.listCosMetadataByPath(path);
+        List<FileInfoVO> fileInfos = fileMetadataMapper.listFileByPath(path,COS);
 
-        List<FolderInfoVO> folders = fileMetadataMapper.listCosFolderByPath(path).stream()
-                .map(s -> new FolderInfoVO(s.replace(path, "").split("/")[0], path)).distinct().toList();
+        Set<FolderInfoVO> folders = fileMetadataMapper.listFolderByPath(path,COS).stream()
+                .map(s -> new FolderInfoVO(s.replace(path, "").split("/")[0], path)).collect(Collectors.toSet());
+        fileMetadataMapper.listFolderNameByPath(path, COS).stream().map(s -> new FolderInfoVO(s, path)).forEach(folders::add);
 
         return new FilesAndFoldersVO(fileInfos, folders);
     }
@@ -837,6 +842,6 @@ public class CosOssServiceImpl implements OssService {
      */
     @Override
     public StorageTypeEnum getCurrStorageType() {
-        return StorageTypeEnum.COS;
+        return COS;
     }
 }

@@ -1,135 +1,116 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper
-  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.sparkseries.module.file.dao.FileMetadataMapper">
 
-  <insert id="insertFile">
-    INSERT INTO file_metadata (id, filename, original_name, file_type, file_size, storage_path,
-                               last_update_date, storage_type)
-    VALUES (#{file.id}, #{file.filename}, #{file.originalName}, #{file.fileType}, #{file.fileSize},
-            #{file.storagePath}, #{file.lastUpdateDate}, #{file.storageType})
-  </insert>
+    <insert id="insertFile">
+        INSERT INTO file_metadata (id, filename, original_name, file_type, file_size, storage_path,
+                                   last_update_date, storage_type)
+        VALUES (#{file.id}, #{file.filename}, #{file.originalName}, #{file.fileType}, #{file.fileSize},
+                #{file.storagePath}, #{file.lastUpdateDate}, #{file.storageType})
+    </insert>
+    <insert id="insertFolder">
+        INSERT INTO folder_metadata (id, folder_name, absolute_path, last_update_date, storage_type)
+        VALUES (#{folder.id}, #{folder.folderName}, #{folder.absolutePath}, #{folder.lastUpdateDate},
+                #{folder.storageType})
+    </insert>
 
-  <delete id="deleteFileById">
-    DELETE
-    FROM file_metadata
-    WHERE id = #{id}
-  </delete>
-  <delete id="deleteFileByPath">
-    DELETE
-    FROM file_metadata
-    WHERE storage_path like concat(#{path}, '%')
-  </delete>
+    <delete id="deleteFileById">
+        DELETE
+        FROM file_metadata
+        WHERE id = #{id}
+          and storage_type = #{storageType}
+    </delete>
 
-  <update id="updateFileNameAndPath">
-    UPDATE file_metadata
-    SET original_name = #{fileName},
-        storage_path  = #{path}
-    WHERE id = #{id}
-  </update>
+    <delete id="deleteFileByPath">
+        DELETE
+        FROM file_metadata
+        WHERE storage_path like concat(#{path}, '%')
+          and storage_type = #{storageType}
+    </delete>
 
-  <update id="updatePath">
-    UPDATE file_metadata
-    SET storage_path = #{path}
-    WHERE id = #{id}
-  </update>
+    <delete id="deleteFolderById">
+        DELETE
+        FROM folder_metadata
+        WHERE id = #{id}
+          and storage_type = #{storageType}
+    </delete>
 
-  <update id="updateFileName">
-    UPDATE file_metadata
-    SET original_name = #{originalName},
-        filename      = #{fileName}
-    WHERE id = #{id}
-  </update>
+    <delete id="deleteFolderByPath">
+        DELETE
+        FROM folder_metadata
+        WHERE absolute_path like concat(#{path}, '%')
+          and storage_type = #{storageType}
+    </delete>
 
-  <select id="isExistFileByName" resultType="java.lang.Integer">
-    SELECT COUNT(*)
-    FROM file_metadata
-    WHERE original_name = #{name}
-      and storage_path = #{path}
-  </select>
+    <update id="updateFileNameAndPath">
+        UPDATE file_metadata
+        SET original_name = #{fileName},
+            storage_path  = #{path}
+        WHERE id = #{id}
+          and storage_type = #{storageType}
+    </update>
 
-  <select id="isExistFileById" resultType="java.lang.Integer">
-    SELECT COUNT(*)
-    FROM file_metadata
-    WHERE id = #{id}
-  </select>
+    <update id="updatePath">
+        UPDATE file_metadata
+        SET storage_path = #{path}
+        WHERE id = #{id}
+          and storage_type = #{storageType}
+    </update>
 
-  <select id="getFileMetadataById"
-    resultType="com.sparkseries.module.file.entity.FileMetadataEntity">
-    SELECT *
-    FROM file_metadata
-    WHERE id = #{id}
-  </select>
-  <select id="listLocalMetadataByPath"
-    resultType="com.sparkseries.module.file.vo.FileInfoVO">
-    SELECT id, original_name, file_size, last_update_date
-    FROM file_metadata
-    WHERE storage_path = #{path}
-      and storage_type = 'LOCAL';
-  </select>
+    <update id="updateFileName">
+        UPDATE file_metadata
+        SET original_name = #{originalName},
+            filename      = #{fileName}
+        WHERE id = #{id}
+          and storage_type = #{storageType}
+    </update>
 
-  <select id="listOssMetadataByPath"
-    resultType="com.sparkseries.module.file.vo.FileInfoVO">
-    SELECT id, original_name, file_size, last_update_date
-    FROM file_metadata
-    WHERE storage_path = #{path}
-      and storage_type = 'OSS';
-  </select>
+    <select id="isExistFileByName" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM file_metadata
+        WHERE original_name = #{name}
+          and storage_path = #{path}
+          and storage_type = #{storageType}
+    </select>
 
-  <select id="listOssFolderByPath"
-    resultType="java.lang.String">
-    SELECT distinct storage_path
-    FROM file_metadata
-    WHERE storage_path = concat(#{path}, '%')
-      and storage_type = 'OSS';
-  </select>
+    <select id="isExistFileById" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM file_metadata
+        WHERE id = #{id}
+          and storage_type = #{storageType}
+    </select>
 
-  <select id="listKodoMetadataByPath"
-    resultType="com.sparkseries.module.file.vo.FileInfoVO">
-    SELECT id, original_name, file_size, last_update_date
-    FROM file_metadata
-    WHERE storage_path = #{path}
-      and storage_type = 'KODO';
-  </select>
+    <select id="getFileMetadataById"
+            resultType="com.sparkseries.module.file.entity.FileMetadataEntity">
+        SELECT *
+        FROM file_metadata
+        WHERE id = #{id}
+          and storage_type = #{storageType}
+    </select>
 
-  <select id="listKodoFolderByPath"
-    resultType="java.lang.String">
-    SELECT distinct storage_path
-    FROM file_metadata
-    WHERE storage_path = concat(#{path}, '%')
-      and storage_type = 'KODO';
-  </select>
+    <select id="listFileByPath"
+            resultType="com.sparkseries.module.file.vo.FileInfoVO">
+        SELECT id, original_name, file_size, last_update_date
+        FROM file_metadata
+        WHERE storage_path = #{path}
+          and storage_type = #{storageType};
+    </select>
 
-  <select id="listCosMetadataByPath"
-    resultType="com.sparkseries.module.file.vo.FileInfoVO">
-    SELECT id, original_name, file_size, last_update_date
-    FROM file_metadata
-    WHERE storage_path = #{path}
-      and storage_type = 'COS';
-  </select>
+    <select id="listFolderByPath"
+            resultType="java.lang.String">
+        SELECT distinct storage_path
+        FROM file_metadata
+        WHERE storage_path = concat(#{path}, '%')
+          and storage_type = #{storageType};
+    </select>
 
-  <select id="listCosFolderByPath"
-    resultType="java.lang.String">
-    SELECT distinct storage_path
-    FROM file_metadata
-    WHERE storage_path = concat(#{path}, '%')
-      and storage_type = 'COS';
-  </select>
+    <select id="listFolderNameByPath" resultType="java.lang.String">
+        select distinct folder_name
+        FROM folder_metadata
+        WHERE absolute_path = #{absolute_path}
+    </select>
 
-  <select id="listMinioMetadataByPath"
-    resultType="com.sparkseries.module.file.vo.FileInfoVO">
-    SELECT id, original_name, file_size, last_update_date
-    FROM file_metadata
-    WHERE storage_path = #{path}
-      and storage_type = 'Minio';
-  </select>
 
-  <select id="listMinioFolderByPath"
-    resultType="java.lang.String">
-    SELECT distinct storage_path
-    FROM file_metadata
-    WHERE storage_path = concat(#{path}, '%')
-      and storage_type = 'Minio';
-  </select>
 </mapper>
