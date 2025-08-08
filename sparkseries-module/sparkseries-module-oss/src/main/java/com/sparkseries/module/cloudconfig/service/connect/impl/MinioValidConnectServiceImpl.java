@@ -179,6 +179,7 @@ public class MinioValidConnectServiceImpl implements ValidConnectService {
 
         } catch (Exception e) {
             log.warn("minio 测试类关闭失败");
+            throw new BusinessException(e.getMessage());
         }
         return true;
     }

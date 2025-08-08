@@ -120,7 +120,7 @@ public class OssValidConnectServiceImpl implements ValidConnectService {
         try {
             log.info("测试对 bucket '{}' 的读权限...", bucketName);
             ListObjectsRequest listObjectsRequest = new ListObjectsRequest(bucketName).withMaxKeys(1);
-            oss.listObjects(listObjectsRequest); // 尝试列出最多1个对象，校验读权限
+            oss.listObjects(listObjectsRequest);
             log.info("对 bucket '{}' 具备读权限", bucketName);
 
         } catch (OSSException oe) {

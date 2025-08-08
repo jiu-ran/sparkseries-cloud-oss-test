@@ -46,6 +46,7 @@ public class KodoValidConnectServiceImpl implements ValidConnectService {
      * @return 测试结果
      */
     public boolean connectTest(String accessKey, String secretKey, String bucketName) {
+
         Region region = Region.autoRegion();
         // 1. 创建 Auth 对象，用于身份验证
         Auth auth = Auth.create(accessKey, secretKey);
@@ -81,19 +82,18 @@ public class KodoValidConnectServiceImpl implements ValidConnectService {
         byte[] testContent = "This is a test object for KODO permission validation.".getBytes();
 
         try (InputStream inputStream = new ByteArrayInputStream(testContent)) {
-            try {
-                // 生成上传凭证
-                String upToken = auth.uploadToken(bucketName);
-                uploadManager.put(inputStream, testObjectName, upToken, null, null);
-                log.info("成功向 bucket '{}' 写入测试对象 '{}'，具备写权限。", bucketName, testObjectName);
+            // 生成上传凭证
+            String upToken = auth.uploadToken(bucketName);
+            uploadManager.put(inputStream, testObjectName, upToken, null, null);
+            log.info("成功向 bucket '{}' 写入测试对象 '{}'，具备写权限。", bucketName, testObjectName);
 
-            } catch (QiniuException e) {
-                log.error("向 bucket '{}' 写入测试对象 '{}' 失败，可能不具备写权限。", bucketName, testObjectName, e);
-                throw new BusinessException("该API密钥对该bucket 不具备写权限");
-            }
+        } catch (QiniuException e) {
+            log.error("向 bucket '{}' 写入测试对象 '{}' 失败，可能不具备写权限。", bucketName, testObjectName, e);
+            throw new BusinessException("该API密钥对该bucket 不具备写权限");
         } catch (IOException e) {
-            log.error("关闭输入流失败。", e);
+            log.error("向 bucket '{}' 写入测试对象 '{}' 失败。", bucketName, testObjectName, e);
         }
+
         try {
             bucketManager.stat(bucketName, testObjectName);
             log.info("成功获取测试对象 '{}' 的 stat 信息，具备读权限。", testObjectName);

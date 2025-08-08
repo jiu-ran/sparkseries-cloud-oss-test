@@ -5,12 +5,12 @@ import com.sparkseries.common.enums.StorageTypeEnum;
 import com.sparkseries.common.util.exception.BusinessException;
 import com.sparkseries.module.cloudconfig.dao.CloudConfigMapper;
 import com.sparkseries.module.cloudconfig.entity.KodoConfigEntity;
+import com.sparkseries.module.cloudconfig.service.connect.impl.KodoValidConnectServiceImpl;
 import com.sparkseries.module.file.dao.FileMetadataMapper;
 import com.sparkseries.module.storage.factory.storage.OssServiceFactory;
-import com.sparkseries.module.cloudconfig.service.connect.impl.KodoValidConnectServiceImpl;
+import com.sparkseries.module.storage.pool.KodoClientPool;
 import com.sparkseries.module.storage.service.oss.OssService;
 import com.sparkseries.module.storage.service.oss.impl.KodoOssServiceImpl;
-import com.sparkseries.module.storage.pool.KodoClientPool;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
@@ -42,6 +42,6 @@ public class KodoOssServiceFactory implements OssServiceFactory {
         }
         KodoClientPool kodoClientPool = new KodoClientPool(kodo.getAccessKey(), kodo.getSecretKey(), poolConfig);
 
-        return new KodoOssServiceImpl(kodoClientPool, kodo.getBucketName(), fileMetadataMapper);
+        return new KodoOssServiceImpl(kodoClientPool, kodo.getBucketName(),fileMetadataMapper);
     }
 }

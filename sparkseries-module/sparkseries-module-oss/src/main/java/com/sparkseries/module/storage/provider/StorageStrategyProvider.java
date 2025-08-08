@@ -53,9 +53,17 @@ public class StorageStrategyProvider {
         } else {
             Long id = active.getId();
             int type = active.getType();
-            changeOssService(type, id);
+            try {
+                changeOssService(type, id);
+            } catch (Exception e) {
+                log.error("云存储服务启动失败，自动切换到本地存储服务。错误信息: {}", e.getMessage());
+                setCurrentStrategy(LOCAL);
+                log.info("已自动切换到本地存储服务");
+            }
+
         }
     }
+
 
     /**
      * 获取当前的存储服务实例
@@ -104,11 +112,17 @@ public class StorageStrategyProvider {
             if (factory == null) {
                 throw new BusinessException("没有找到类型为 " + storageEnum.name() + " 的存储服务工厂");
             }
-            OssService ossService = factory.createService(id);
-            springBeanUtil.registerSingleton(storageEnum.getKey(), ossService);
-            strategyMap.put(storageEnum.getKey(), ossService);
-            setCurrentStrategy(storageEnum);
-            log.info("启动存储服务成功,当前存储服务为 {}", storageEnum.name());
+            try {
+                OssService ossService = factory.createService(id);
+                springBeanUtil.registerSingleton(storageEnum.getKey(), ossService);
+                strategyMap.put(storageEnum.getKey(), ossService);
+                setCurrentStrategy(storageEnum);
+                log.info("启动存储服务成功,当前存储服务为 {}", storageEnum.name());
+            } catch (Exception e) {
+                log.error("存储服务切换失败 错误信息:{}", e.getMessage());
+                throw new BusinessException("存储服务切换失败");
+            }
+
         }
     }
 

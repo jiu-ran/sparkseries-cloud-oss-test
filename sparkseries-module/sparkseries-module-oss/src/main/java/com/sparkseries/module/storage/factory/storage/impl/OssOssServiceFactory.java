@@ -26,7 +26,6 @@ public class OssOssServiceFactory implements OssServiceFactory {
     private final PoolConfig poolConfig;
     private final FileMetadataMapper fileMetadataMapper;
 
-
     @Override
     public StorageTypeEnum getStorageType() {
         return StorageTypeEnum.OSS;
@@ -38,13 +37,11 @@ public class OssOssServiceFactory implements OssServiceFactory {
         if (ObjectUtils.isEmpty(oss)) {
             throw new BusinessException("OSS 该配置文件不存在 请先保存再进行切换");
         }
-        // 建议将 connectTest 也作为 Bean 注入，而不是每次都 new
-        if (!new OssValidConnectServiceImpl().connectTest(oss.getEndpoint(), oss.getAccessKeyId(),
-                oss.getAccessKeySecret(), oss.getBucketName(), oss.getRegion())) {
+
+        if (!new OssValidConnectServiceImpl().connectTest(oss.getEndpoint(), oss.getAccessKeyId(), oss.getAccessKeySecret(), oss.getBucketName(), oss.getRegion())) {
             throw new BusinessException("保存的OSS存储配置失效了请重新保存");
         }
-        OssClientPool ossClientPool = new OssClientPool(oss.getEndpoint(), oss.getAccessKeyId(),
-                oss.getAccessKeySecret(), oss.getRegion(), poolConfig);
+        OssClientPool ossClientPool = new OssClientPool(oss.getEndpoint(), oss.getAccessKeyId(), oss.getAccessKeySecret(), oss.getRegion(), poolConfig);
         return new OssOssServiceImpl(ossClientPool, oss.getBucketName(), fileMetadataMapper);
     }
 }

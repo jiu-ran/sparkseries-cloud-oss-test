@@ -37,12 +37,10 @@ public class CosOssServiceFactory implements OssServiceFactory {
         if (ObjectUtils.isEmpty(cos)) {
             throw new BusinessException("COS 该配置文件不存在 请先保存再进行切换");
         }
-        if (!new CosValidConnectServiceImpl().connectTest(cos.getSecretId(), cos.getSecretKey(), cos.getBucketName(),
-                cos.getRegion())) {
+        if (!new CosValidConnectServiceImpl().connectTest(cos.getSecretId(), cos.getSecretKey(), cos.getBucketName(), cos.getRegion())) {
             throw new BusinessException("保存的COS存储配置失效了请重新保存");
         }
-        CosClientPool cosClientPool = new CosClientPool(cos.getSecretId(), cos.getSecretKey(), cos.getRegion(),
-                cos.getBucketName(), poolConfig);
+        CosClientPool cosClientPool = new CosClientPool(cos.getSecretId(), cos.getSecretKey(), cos.getRegion(), cos.getBucketName(), poolConfig);
         return new CosOssServiceImpl(cosClientPool, cos.getBucketName(), fileMetadataMapper);
     }
 }
