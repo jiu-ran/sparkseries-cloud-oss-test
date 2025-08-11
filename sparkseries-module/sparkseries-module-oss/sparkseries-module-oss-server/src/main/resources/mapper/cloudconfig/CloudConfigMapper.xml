@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.sparkseries.module.cloudconfig.dao.CloudConfigMapper">
+
+    <insert id="insertOssConfig">
+        insert into oss_config(id, endpoint, access_key_id, access_key_secret, bucket_name, region, status)
+        values (#{ossConfigEntity.id}, #{ossConfigEntity.endpoint}, #{ossConfigEntity.accessKeyId}, #{ossConfigEntity.accessKeySecret},
+                #{ossConfigEntity.bucketName}, #{ossConfigEntity.region}, 1)
+    </insert>
+
+    <insert id="insertCosConfig">
+        insert into cos_config(id, secret_id, secret_key, bucket_name, region, status)
+        values (#{cosConfigEntity.id}, #{cosConfigEntity.secretId}, #{cosConfigEntity.secretKey}, #{cosConfigEntity.bucketName},
+                #{cosConfigEntity.region}, 1)
+    </insert>
+
+    <insert id="insertKodoConfig">
+        insert into kodo_config(id, access_key, secret_key, bucket_name, status)
+        values (#{kodoConfigEntity.id}, #{kodoConfigEntity.accessKey}, #{kodoConfigEntity.secretKey}, #{kodoConfigEntity.bucketName}, 1)
+    </insert>
+
+    <insert id="insertMinioConfig">
+        insert into minio_config(id, endpoint, access_key, secret_key, bucket_name, status)
+        values (#{minioConfigEntity.id}, #{minioConfigEntity.endpoint}, #{minioConfigEntity.accessKey}, #{minioConfigEntity.secretKey},
+                #{minioConfigEntity.bucketName}, 1)
+    </insert>
+
+
+    <delete id="deleteOssConfigById">
+        update oss_config
+        set status = 0
+        where id = #{id}
+    </delete>
+
+    <delete id="deleteCosConfigById">
+        update cos_config
+        set status = 0
+        where id = #{id}
+    </delete>
+
+    <delete id="deleteKodoConfigById">
+        update kodo_config
+        set status = 0
+        where id = #{id}
+    </delete>
+
+    <delete id="deleteMinioConfigById">
+        update minio_config
+        set status = 0
+        where id = #{id}
+    </delete>
+
+
+
+    <select id="listOssConfig" resultType="com.sparkseries.module.cloudconfig.entity.OssConfigEntity">
+        select *
+        from oss_config
+        where status = 1
+    </select>
+
+    <select id="listCosConfig" resultType="com.sparkseries.module.cloudconfig.entity.CosConfigEntity">
+        select *
+        from cos_config
+        where status = 1
+    </select>
+
+    <select id="listKodoConfig" resultType="com.sparkseries.module.cloudconfig.entity.KodoConfigEntity">
+        select *
+        from kodo_config
+        where status = 1
+    </select>
+
+    <select id="listMinioConfig" resultType="com.sparkseries.module.cloudconfig.entity.MinioConfigEntity">
+        select *
+        from minio_config
+        where status = 1
+    </select>
+
+    <select id="getOssConfigById" resultType="com.sparkseries.module.cloudconfig.entity.OssConfigEntity">
+        select *
+        from oss_config
+        where id = #{id}
+          and status = 1
+    </select>
+
+    <select id="getCosConfigById" resultType="com.sparkseries.module.cloudconfig.entity.CosConfigEntity">
+        select *
+        from cos_config
+        where id = #{id}
+          and status = 1
+    </select>
+
+    <select id="getKodoConfigById" resultType="com.sparkseries.module.cloudconfig.entity.KodoConfigEntity">
+        select *
+        from kodo_config
+        where id = #{id}
+          and status = 1
+    </select>
+
+    <select id="getMinioConfigById" resultType="com.sparkseries.module.cloudconfig.entity.MinioConfigEntity">
+        select *
+        from minio_config
+        where id = #{id}
+          and status = 1
+    </select>
+
+
+</mapper>
