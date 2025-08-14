@@ -2,6 +2,9 @@ package com.sparkeries.dto;
 
 import lombok.Data;
 
+/**
+ * 头像信息
+ */
 @Data
 public class AvatarDTO {
     public Long id;

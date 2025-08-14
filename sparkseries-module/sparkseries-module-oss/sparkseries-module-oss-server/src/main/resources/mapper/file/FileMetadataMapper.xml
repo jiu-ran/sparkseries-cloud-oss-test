@@ -2,7 +2,7 @@
 <!DOCTYPE mapper
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.sparkseries.module.file.dao.FileMetadataMapper">
+<mapper namespace="com.sparkseries.module.oss.file.dao.FileMetadataMapper">
 
     <insert id="insertFile">
         INSERT INTO file_metadata (id, filename, original_name, file_type, file_size, storage_path,
@@ -83,7 +83,7 @@
     </select>
 
     <select id="getFileMetadataById"
-            resultType="com.sparkseries.module.file.entity.FileMetadataEntity">
+            resultType="com.sparkseries.module.oss.file.entity.FileMetadataEntity">
         SELECT *
         FROM file_metadata
         WHERE id = #{id}
@@ -91,7 +91,7 @@
     </select>
 
     <select id="listFileByPath"
-            resultType="com.sparkseries.module.file.vo.FileInfoVO">
+            resultType="com.sparkseries.module.oss.file.vo.FileInfoVO">
         SELECT id, original_name, file_size, last_update_date
         FROM file_metadata
         WHERE storage_path = #{path}

@@ -3,7 +3,7 @@
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
-<mapper namespace="com.sparkseries.module.cloudconfig.dao.CloudConfigMapper">
+<mapper namespace="com.sparkseries.module.oss.cloud.dao.CloudConfigMapper">
 
     <insert id="insertOssConfig">
         insert into oss_config(id, endpoint, access_key_id, access_key_secret, bucket_name, region, status)
@@ -55,52 +55,52 @@
 
 
 
-    <select id="listOssConfig" resultType="com.sparkseries.module.cloudconfig.entity.OssConfigEntity">
+    <select id="listOssConfig" resultType="com.sparkseries.module.oss.cloud.entity.OssConfigEntity">
         select *
         from oss_config
         where status = 1
     </select>
 
-    <select id="listCosConfig" resultType="com.sparkseries.module.cloudconfig.entity.CosConfigEntity">
+    <select id="listCosConfig" resultType="com.sparkseries.module.oss.cloud.entity.CosConfigEntity">
         select *
         from cos_config
         where status = 1
     </select>
 
-    <select id="listKodoConfig" resultType="com.sparkseries.module.cloudconfig.entity.KodoConfigEntity">
+    <select id="listKodoConfig" resultType="com.sparkseries.module.oss.cloud.entity.KodoConfigEntity">
         select *
         from kodo_config
         where status = 1
     </select>
 
-    <select id="listMinioConfig" resultType="com.sparkseries.module.cloudconfig.entity.MinioConfigEntity">
+    <select id="listMinioConfig" resultType="com.sparkseries.module.oss.cloud.entity.MinioConfigEntity">
         select *
         from minio_config
         where status = 1
     </select>
 
-    <select id="getOssConfigById" resultType="com.sparkseries.module.cloudconfig.entity.OssConfigEntity">
+    <select id="getOssConfigById" resultType="com.sparkseries.module.oss.cloud.entity.OssConfigEntity">
         select *
         from oss_config
         where id = #{id}
           and status = 1
     </select>
 
-    <select id="getCosConfigById" resultType="com.sparkseries.module.cloudconfig.entity.CosConfigEntity">
+    <select id="getCosConfigById" resultType="com.sparkseries.module.oss.cloud.entity.CosConfigEntity">
         select *
         from cos_config
         where id = #{id}
           and status = 1
     </select>
 
-    <select id="getKodoConfigById" resultType="com.sparkseries.module.cloudconfig.entity.KodoConfigEntity">
+    <select id="getKodoConfigById" resultType="com.sparkseries.module.oss.cloud.entity.KodoConfigEntity">
         select *
         from kodo_config
         where id = #{id}
           and status = 1
     </select>
 
-    <select id="getMinioConfigById" resultType="com.sparkseries.module.cloudconfig.entity.MinioConfigEntity">
+    <select id="getMinioConfigById" resultType="com.sparkseries.module.oss.cloud.entity.MinioConfigEntity">
         select *
         from minio_config
         where id = #{id}

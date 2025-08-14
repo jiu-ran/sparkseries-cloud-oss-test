@@ -28,11 +28,13 @@ public interface AvatarClient {
 
     /**
      * 修改头像
+     *
+     * @param avatar 头像文件
+     * @return 修改结果
      */
     @PutMapping()
     @Operation(summary = "修改头像")
     Result<?> changeAvatar(@RequestParam("file") @NotNull(message = "请指定上传头像") MultipartFile avatar);
-
 
 
 }

@@ -14,7 +14,7 @@ public class Constants {
     public final static String AVATAR_PATH_PREFIX = "avatar/";
 
     /**
-     * 头像最大大小
+     * 头像最大大小 10MB
      */
     public final static Integer AVATAR_MAX_SIZE = 10 * 1024 * 1024;
 
@@ -58,7 +58,5 @@ public class Constants {
      */
     public static final int OSS_SIZE_THRESHOLD = 50 * 1024 * 1024;
 
-
-    public final static String DATA_FORMAT = "yyyy-MM-dd HH:mm:ss";
 
 }

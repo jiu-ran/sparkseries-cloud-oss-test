@@ -104,6 +104,7 @@
             <artifactId>sparkseries-module-oss-client</artifactId>
             <version>${revision}</version>
         </dependency>
+
     </dependencies>
 
 
