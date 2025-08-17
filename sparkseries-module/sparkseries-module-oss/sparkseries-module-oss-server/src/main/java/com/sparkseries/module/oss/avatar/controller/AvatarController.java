@@ -2,8 +2,8 @@ package com.sparkseries.module.oss.avatar.controller;
 
 
 import com.sparkseries.common.util.entity.Result;
-import com.sparkseries.module.oss.file.dto.MultipartFileDTO;
 import com.sparkseries.module.oss.avatar.service.AvatarService;
+import com.sparkseries.module.oss.file.dto.MultipartFileDTO;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
@@ -28,11 +28,15 @@ public class AvatarController {
 
     /**
      * 上传用户头像
+     *
+     * @param avatar 头像文件
+     * @param userId 用户ID
+     * @return 上传结果
      */
     @PostMapping()
     @Operation(summary = "上传用户头像")
     public Result<String> uploadAvatar(@RequestParam("file") @NotNull(message = "请指定上传头像") MultipartFile avatar,
-                                  @RequestParam("userId") @NotNull(message = "请指定用户id") Long userId) {
+                                       @RequestParam("userId") @NotNull(message = "请指定用户id") Long userId) {
 
         try {
             Tika tika = new Tika();
@@ -46,6 +50,9 @@ public class AvatarController {
 
     /**
      * 修改头像
+     *
+     * @param avatar 头像文件
+     * @return 修改结果
      */
     @PutMapping()
     @Operation(summary = "修改头像")
@@ -62,6 +69,8 @@ public class AvatarController {
 
     /**
      * 获取云存储用户头像
+     * @param userId 用户ID
+     *
      */
     @GetMapping("/{userId}")
     @Operation(summary = "获取用户头像")
