@@ -1,38 +1,31 @@
 package com.sparkseries.module.oss.provider.minio.oss;
 
-import static com.sparkeries.constant.Constants.MINIO_SIZE_THRESHOLD;
-import static com.sparkeries.enums.StorageTypeEnum.COS;
-import static com.sparkeries.enums.StorageTypeEnum.MINIO;
-
-import com.sparkseries.module.oss.file.dto.MultipartFileDTO;
 import com.sparkeries.enums.StorageTypeEnum;
-import com.sparkseries.common.util.exception.BusinessException;
+import com.sparkseries.module.oss.common.api.provider.service.OssService;
+import com.sparkseries.module.oss.common.exception.OssException;
 import com.sparkseries.module.oss.file.dao.FileMetadataMapper;
+import com.sparkseries.module.oss.file.dto.MultipartFileDTO;
 import com.sparkseries.module.oss.file.entity.FileMetadataEntity;
 import com.sparkseries.module.oss.file.vo.FileInfoVO;
 import com.sparkseries.module.oss.file.vo.FilesAndFoldersVO;
 import com.sparkseries.module.oss.file.vo.FolderInfoVO;
 import com.sparkseries.module.oss.provider.minio.pool.MinioClientPool;
-import com.sparkseries.module.oss.common.api.provider.service.OssService;
-import io.minio.CopyObjectArgs;
-import io.minio.CopySource;
-import io.minio.GetPresignedObjectUrlArgs;
-import io.minio.ListObjectsArgs;
-import io.minio.MinioClient;
-import io.minio.PutObjectArgs;
-import io.minio.RemoveObjectArgs;
-import io.minio.Result;
+import io.minio.*;
 import io.minio.http.Method;
 import io.minio.messages.Item;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.codec.net.URLCodec;
+import org.springframework.http.ResponseEntity;
+
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.codec.net.URLCodec;
-import org.springframework.http.ResponseEntity;
+import static com.sparkeries.constant.Constants.MINIO_SIZE_THRESHOLD;
+import static com.sparkeries.enums.StorageTypeEnum.COS;
+import static com.sparkeries.enums.StorageTypeEnum.MINIO;
 
 /**
  * Minio文件存储服务实现类
@@ -86,7 +79,7 @@ public class MinioOssServiceImpl implements OssService {
         } catch (Exception e) {
             log.error("[上传文件操作] 文件上传失败 - 目标路径: {}, 错误: {}",
                     fileInfo.getAbsolutePath(), e.getMessage(), e);
-            throw new BusinessException("文件上传失败: " + e.getMessage());
+            throw new OssException("文件上传失败: " + e.getMessage());
         } finally {
             if (client != null) {
                 clientPool.returnClient(client);
@@ -120,7 +113,7 @@ public class MinioOssServiceImpl implements OssService {
             long duration = System.currentTimeMillis() - startTime;
             log.error("Minio 小文件上传失败: {}, 大小: {} bytes, 耗时: {} ms, 错误信息: {}",
                     fileInfo.getAbsolutePath(), fileInfo.getSize(), duration, e.getMessage(), e);
-            throw new BusinessException("小文件上传失败: " + e.getMessage());
+            throw new OssException("小文件上传失败: " + e.getMessage());
         }
     }
 
@@ -153,7 +146,7 @@ public class MinioOssServiceImpl implements OssService {
             long duration = System.currentTimeMillis() - startTime;
             log.error("Minio 大文件分片上传失败: {}, 大小: {} bytes, 耗时: {} ms, 错误信息: {}",
                     fileInfo.getAbsolutePath(), fileInfo.getSize(), duration, e.getMessage(), e);
-            throw new BusinessException("大文件分片上传失败: " + e.getMessage());
+            throw new OssException("大文件分片上传失败: " + e.getMessage());
         }
     }
 
@@ -209,7 +202,7 @@ public class MinioOssServiceImpl implements OssService {
             long duration = System.currentTimeMillis() - startTime;
             log.error("[创建文件夹操作] 创建文件夹失败: {}, 耗时: {} ms, 错误: {}", path, duration,
                     e.getMessage(), e);
-            throw new BusinessException("Minio 创建目录:" + path + "失败: " + e.getMessage());
+            throw new OssException("Minio 创建目录:" + path + "失败: " + e.getMessage());
         } finally {
             if (client != null) {
                 clientPool.returnClient(client);
@@ -239,7 +232,7 @@ public class MinioOssServiceImpl implements OssService {
             long duration = System.currentTimeMillis() - startTime;
             log.error("[删除文件操作] 删除文件失败: {}, 耗时: {} ms, 错误: {}", absolutePath,
                     duration, e.getMessage(), e);
-            throw new BusinessException(
+            throw new OssException(
                     "Minio 删除文件:" + absolutePath + "失败: " + e.getMessage());
         } finally {
             if (client != null) {
@@ -295,7 +288,7 @@ public class MinioOssServiceImpl implements OssService {
             long duration = System.currentTimeMillis() - startTime;
             log.error("[删除文件夹操作] 删除目录失败: {}, 耗时: {} ms, 错误: {}", path, duration,
                     e.getMessage(), e);
-            throw new BusinessException("Minio 删除目录:" + path + "失败: " + e.getMessage());
+            throw new OssException("Minio 删除目录:" + path + "失败: " + e.getMessage());
         } finally {
             if (client != null) {
                 clientPool.returnClient(client);
@@ -343,7 +336,7 @@ public class MinioOssServiceImpl implements OssService {
             long duration = System.currentTimeMillis() - startTime;
             log.error("[下载文件操作] 获取下载链接失败 - 文件路径: {}, 耗时: {} ms, 错误: {}",
                     absolutePath, duration, e.getMessage(), e);
-            throw new BusinessException(
+            throw new OssException(
                     "Minio 获取" + absolutePath + "的下载链接失败: " + e.getMessage());
         } finally {
             if (client != null) {
@@ -412,7 +405,7 @@ public class MinioOssServiceImpl implements OssService {
             log.error(
                     "[重命名文件操作] 文件重命名失败 - 原路径: {}, 新路径: {}, 耗时: {} ms, 错误: {}",
                     sourceAbsolutePath, targetAbsolutePath, duration, e.getMessage(), e);
-            throw new BusinessException(
+            throw new OssException(
                     "Minio 文件:" + sourceAbsolutePath + "重命名失败: " + e.getMessage());
         } finally {
             if (client != null) {
@@ -469,7 +462,7 @@ public class MinioOssServiceImpl implements OssService {
             long duration = System.currentTimeMillis() - startTime;
             log.error("[预览文件操作] 获取预览链接失败 - 文件路径: {}, 耗时: {} ms, 错误: {}",
                     absolutePath, duration, e.getMessage(), e);
-            throw new BusinessException("Minio 获取预览链接失败: " + e.getMessage());
+            throw new OssException("Minio 获取预览链接失败: " + e.getMessage());
         } finally {
             if (client != null) {
                 log.debug("归还Minio客户端连接到连接池");
@@ -545,7 +538,7 @@ public class MinioOssServiceImpl implements OssService {
             long duration = System.currentTimeMillis() - startTime;
             log.error("[移动文件操作] 对象移动失败 - 从 {} 到 {}, 耗时: {} ms, 错误: {}",
                     sourceAbsolutePath, targetAbsolutePath, duration, e.getMessage(), e);
-            throw new BusinessException("Minio 对象移动失败: " + e.getMessage());
+            throw new OssException("Minio 对象移动失败: " + e.getMessage());
         } finally {
             if (client != null) {
                 clientPool.returnClient(client);

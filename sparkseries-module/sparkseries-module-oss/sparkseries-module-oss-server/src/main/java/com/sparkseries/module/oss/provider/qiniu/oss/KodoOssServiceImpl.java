@@ -1,9 +1,5 @@
 package com.sparkseries.module.oss.provider.qiniu.oss;
 
-import static com.sparkeries.constant.Constants.KODO_SIZE_THRESHOLD;
-import static com.sparkeries.enums.StorageTypeEnum.COS;
-import static com.sparkeries.enums.StorageTypeEnum.KODO;
-
 import com.qiniu.common.QiniuException;
 import com.qiniu.http.Response;
 import com.qiniu.storage.BucketManager;
@@ -13,16 +9,22 @@ import com.qiniu.storage.UploadManager;
 import com.qiniu.storage.model.FileInfo;
 import com.qiniu.storage.model.FileListing;
 import com.qiniu.util.Auth;
-import com.sparkseries.module.oss.file.dto.MultipartFileDTO;
 import com.sparkeries.enums.StorageTypeEnum;
-import com.sparkseries.common.util.exception.BusinessException;
+import com.sparkseries.module.oss.common.api.provider.service.OssService;
+import com.sparkseries.module.oss.common.exception.OssException;
 import com.sparkseries.module.oss.file.dao.FileMetadataMapper;
+import com.sparkseries.module.oss.file.dto.MultipartFileDTO;
 import com.sparkseries.module.oss.file.entity.FileMetadataEntity;
 import com.sparkseries.module.oss.file.vo.FileInfoVO;
 import com.sparkseries.module.oss.file.vo.FilesAndFoldersVO;
 import com.sparkseries.module.oss.file.vo.FolderInfoVO;
 import com.sparkseries.module.oss.provider.qiniu.pool.KodoClientPool;
-import com.sparkseries.module.oss.common.api.provider.service.OssService;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.codec.CharEncoding;
+import org.apache.commons.codec.EncoderException;
+import org.apache.commons.codec.net.URLCodec;
+import org.springframework.http.ResponseEntity;
+
 import java.io.File;
 import java.io.IOException;
 import java.net.URLEncoder;
@@ -33,11 +35,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.codec.CharEncoding;
-import org.apache.commons.codec.EncoderException;
-import org.apache.commons.codec.net.URLCodec;
-import org.springframework.http.ResponseEntity;
+import static com.sparkeries.constant.Constants.KODO_SIZE_THRESHOLD;
+import static com.sparkeries.enums.StorageTypeEnum.COS;
+import static com.sparkeries.enums.StorageTypeEnum.KODO;
 
 /**
  * Kodo文件存储服务实现类 提供基于七牛云Kodo对象存储的文件操作服务，包括上传、下载、删除、重命名、移动、创建文件夹、列举文件等功能
@@ -118,7 +118,7 @@ public class KodoOssServiceImpl implements OssService {
             }
         } catch (Exception e) {
             log.error("Kodo文件上传失败: {}", e.getMessage(), e);
-            throw new BusinessException("KODO上传失败: " + e.getMessage());
+            throw new OssException("KODO上传失败: " + e.getMessage());
         } finally {
             if (client != null) {
                 log.debug("[上传文件操作] 归还Kodo客户端连接到连接池");
@@ -146,13 +146,13 @@ public class KodoOssServiceImpl implements OssService {
                     null, null);
             if (!response.isOK()) {
                 log.error("直接上传失败: 文件路径={}, 错误信息: {}", absolutePath, response.error);
-                throw new BusinessException("直接上传失败: " + response.error);
+                throw new OssException("直接上传失败: " + response.error);
             }
 
             log.info("小文件直接上传完成: 文件路径={}, 大小: {} KB", absolutePath, fileSize / 1024);
             return true;
         } catch (Exception e) {
-            throw new BusinessException("小文件上传失败: " + e.getMessage());
+            throw new OssException("小文件上传失败: " + e.getMessage());
         }
     }
 
@@ -185,14 +185,14 @@ public class KodoOssServiceImpl implements OssService {
                     false);
             if (!response.isOK()) {
                 log.error("分片上传失败: 文件路径={}, 错误信息: {}", absolutePath, response.error);
-                throw new BusinessException("分片上传失败: " + response.error);
+                throw new OssException("分片上传失败: " + response.error);
             }
 
             log.info("大文件分片上传完成: 文件路径={}, 大小: {} MB", absolutePath,
                     fileSize / (1024 * 1024));
             return true;
         } catch (Exception e) {
-            throw new BusinessException("大文件分片上传失败: " + e.getMessage());
+            throw new OssException("大文件分片上传失败: " + e.getMessage());
         } finally {
             cleanupTempFile(tempFile);
         }
@@ -236,7 +236,7 @@ public class KodoOssServiceImpl implements OssService {
             log.debug("[创建文件夹操作] 成功获取Kodo客户端连接，开始检查文件夹是否存在");
             if (isFolderExists(path)) {
                 log.warn("[创建文件夹操作] 文件夹已存在: {}", path);
-                throw new BusinessException("文件夹已存在");
+                throw new OssException("文件夹已存在");
             }
             UploadManager uploadManager = new UploadManager(config);
             String uploadToken = client.uploadToken(bucketName, path);
@@ -246,13 +246,13 @@ public class KodoOssServiceImpl implements OssService {
             Response response = uploadManager.put(emptyData, path, uploadToken);
 
             if (!response.isOK()) {
-                throw new BusinessException("文件夹创建失败: " + response.error);
+                throw new OssException("文件夹创建失败: " + response.error);
             }
             log.info("[创建文件夹操作] 文件夹创建成功: {}", path);
 
-        } catch (BusinessException e) {
+        } catch (OssException e) {
             log.error("[创建文件夹操作] 文件夹创建失败: {}, 错误: {}", path, e.getMessage());
-            throw new BusinessException("文件夹:" + "创建失败" + e.getMessage());
+            throw new OssException("文件夹:" + "创建失败" + e.getMessage());
         } catch (QiniuException e) {
             if (e.code() == 612) {
                 log.debug("[创建文件夹操作] 目录 {} 不存在", path);
@@ -327,10 +327,10 @@ public class KodoOssServiceImpl implements OssService {
             bucketManager.delete(bucketName, absolutePath);
             log.info("[删除文件操作] 文件删除成功: {}", absolutePath);
             return true;
-        } catch (BusinessException | QiniuException e) {
+        } catch (OssException | QiniuException e) {
             log.error("[删除文件操作] KODO中删除文件失败: {}, 错误: {}", absolutePath,
                     e.getMessage());
-            throw new BusinessException("KODO中删除文件失败");
+            throw new OssException("KODO中删除文件失败");
         } catch (Exception e) {
             log.error("[删除文件操作] 删除文件时发生未知异常: {}", e.getMessage(), e);
             throw new RuntimeException(e);
@@ -464,7 +464,7 @@ public class KodoOssServiceImpl implements OssService {
             String[] domains = bucketManager.domainList(bucketName);
 
             if (domains.length == 0) {
-                throw new BusinessException("该bucket没有域名 请为该bucket绑定域名");
+                throw new OssException("该bucket没有域名 请为该bucket绑定域名");
             }
             String baseUrl = domains[0] + "/" + encodedAbsolutePath + "?attname=" + encodedFileName;
 
@@ -588,7 +588,7 @@ public class KodoOssServiceImpl implements OssService {
 
         } catch (Exception e) {
             log.error("[预览文件操作] 生成预签名URL失败: {}", e.getMessage(), e);
-            throw new BusinessException("错误");
+            throw new OssException("错误");
         } finally {
             if (client != null) {
                 log.debug("[预览文件操作] 归还Kodo客户端连接到连接池");
@@ -607,7 +607,7 @@ public class KodoOssServiceImpl implements OssService {
         String[] domains = bucketManager.domainList(bucketName);
 
         if (domains.length == 0) {
-            throw new BusinessException("该bucket没有域名 请为该bucket绑定域名");
+            throw new OssException("该bucket没有域名 请为该bucket绑定域名");
         }
 
         // 2. 构建不带签名的 base URL

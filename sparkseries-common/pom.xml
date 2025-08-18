@@ -15,6 +15,7 @@
     <modules>
         <module>sparkseries-common-dependency</module>
         <module>sparkseries-common-util</module>
+        <module>sparkseries-common-security</module>
     </modules>
 
     <build>

@@ -3,15 +3,18 @@ package com.sparkseries.common.util.handler;
 import static com.sparkseries.common.util.tool.Constants.STORAGE_TYPE_ENUM;
 
 import com.sparkseries.common.util.entity.Result;
+import com.sparkseries.common.util.exception.BaseException;
 import com.sparkseries.common.util.exception.BusinessException;
 import com.sparkseries.common.util.exception.ValidationException;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -44,6 +47,20 @@ public class GlobalExceptionHandler {
             return Result.error("请选择正确的服务类型，支持的类型：OSS、COS、KODO、MINIO、LOCAL");
         }
         return Result.error("请求数据格式错误");
+    }
+
+    /**
+     * 处理 BaseException 及其子类异常
+     *
+     * @param e BaseException 异常
+     * @return 默认响应类
+     */
+    @ExceptionHandler(BaseException.class)
+    public Result<?> handleBaseException(BaseException e) {
+        // 根据异常类型提供更具体的日志信息
+        String exceptionType = e.getClass().getSimpleName();
+        log.warn("捕获到异常: [类型: {}], [错误码: {}], [信息: '{}']", exceptionType, e.getCode(), e.getMessage());
+        return Result.error(e.getCode(), e.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)

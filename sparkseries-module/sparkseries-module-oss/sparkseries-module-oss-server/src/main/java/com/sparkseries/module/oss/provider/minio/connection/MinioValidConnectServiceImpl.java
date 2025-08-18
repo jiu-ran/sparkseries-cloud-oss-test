@@ -1,9 +1,9 @@
 package com.sparkseries.module.oss.provider.minio.connection;
 
 
-import com.sparkseries.common.util.exception.BusinessException;
 import com.sparkseries.module.oss.cloud.dto.CloudConfigDTO;
 import com.sparkseries.module.oss.common.api.provider.service.ValidConnectService;
+import com.sparkseries.module.oss.common.exception.OssException;
 import io.minio.GetObjectArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
@@ -64,10 +64,10 @@ public class MinioValidConnectServiceImpl implements ValidConnectService {
                     String code = errorResponse.code();
                     if ("SignatureDoesNotMatch".equals(code)) {
                         log.error("签名错误 请输入正确的签名");
-                        throw new BusinessException("Minio连接失败 secretKey错误");
+                        throw new OssException("Minio连接失败 secretKey错误");
                     } else if ("InvalidAccessKeyId".equals(code)) {
                         log.error("你输入的密钥无效 请输入正确的密钥");
-                        throw new BusinessException("Minio连接失败 accessKey错误");
+                        throw new OssException("Minio连接失败 accessKey错误");
                     } else if ("AccessDenied".equals(code)) {
                         log.error("你没有相关的操作权限");
                     }
@@ -75,10 +75,10 @@ public class MinioValidConnectServiceImpl implements ValidConnectService {
 
             } catch (IOException e) {
                 log.error("请输入正确的endpoint");
-                throw new BusinessException("请输入正确的endpoint");
+                throw new OssException("请输入正确的endpoint");
             } catch (NoSuchAlgorithmException e) {
                 log.error("创建 MinioClient 实例时发生异常。", e);
-                throw new BusinessException("创建 MinioClient 实例时发生异常");
+                throw new OssException("创建 MinioClient 实例时发生异常");
             } catch (IllegalArgumentException e) {
                 log.error("请输入正确的endpoint格式");
             }
@@ -89,7 +89,7 @@ public class MinioValidConnectServiceImpl implements ValidConnectService {
                 boolean found = minioClient.bucketExists(io.minio.BucketExistsArgs.builder().bucket(bucketName).build());
                 if (!found) {
                     log.warn("Bucket '{}' 不存在", bucketName);
-                    throw new BusinessException("你输入的bucket不存在 请输入存在的bucketName");
+                    throw new OssException("你输入的bucket不存在 请输入存在的bucketName");
                 }
                 log.info("Bucket '{}' 存在。", bucketName);
 
@@ -100,10 +100,10 @@ public class MinioValidConnectServiceImpl implements ValidConnectService {
                     String code = errorResponse.code();
                     if ("AccessDenied".equals(code)) {
                         log.error("Minio 该API密钥没有读权限");
-                        throw new BusinessException("该API密钥没有读权限");
+                        throw new OssException("该API密钥没有读权限");
                     }
                 }
-                throw new BusinessException(e.getMessage());
+                throw new OssException(e.getMessage());
             }
 
 
@@ -129,13 +129,13 @@ public class MinioValidConnectServiceImpl implements ValidConnectService {
                         String code = errorResponse.code();
                         if ("AccessDenied".equals(code)) {
                             log.error("Minio 该API密钥没有写权限");
-                            throw new BusinessException("该API密钥没有写权限");
+                            throw new OssException("该API密钥没有写权限");
                         }
                     }
-                    throw new BusinessException(e.getMessage());
+                    throw new OssException(e.getMessage());
                 } catch (InvalidKeyException | NoSuchAlgorithmException | IOException e) {
                     log.error("写入测试对象时发生异常。", e);
-                    throw new BusinessException("Minio 写入测试发生异常");
+                    throw new OssException("Minio 写入测试发生异常");
                 }
             } catch (IOException e) {
                 log.error("关闭输入流失败。", e);
@@ -153,14 +153,14 @@ public class MinioValidConnectServiceImpl implements ValidConnectService {
                     log.info("成功从 bucket '{}' 读取测试对象 '{}'，具备读权限。", bucketName, testObjectName);
                 } else {
                     log.warn("从 bucket '{}' 读取测试对象 '{}' 失败，可能不具备读权限或对象内容为空。", bucketName, testObjectName);
-                    throw new BusinessException("该bucket对外并没有开放读权限");
+                    throw new OssException("该bucket对外并没有开放读权限");
                 }
             } catch (MinioException e) {
                 log.warn("从 bucket '{}' 读取测试对象 '{}' 失败，可能不具备读权限。", bucketName, testObjectName, e);
-                throw new BusinessException("该bucket对外并没有开放读权限");
+                throw new OssException("该bucket对外并没有开放读权限");
             } catch (InvalidKeyException | NoSuchAlgorithmException | IOException e) {
                 log.error("读取测试对象时发生异常。", e);
-                throw new BusinessException("Minio 读取测试发生异常");
+                throw new OssException("Minio 读取测试发生异常");
             }
             try {
                 minioClient.removeObject(
@@ -171,15 +171,15 @@ public class MinioValidConnectServiceImpl implements ValidConnectService {
                 log.info("成功从 bucket '{}' 删除测试对象 '{}'，具备删除权限。", bucketName, testObjectName);
             } catch (MinioException e) {
                 log.warn("从 bucket '{}' 删除测试对象 '{}' 失败，可能不具备删除权限。", bucketName, testObjectName, e);
-                throw new BusinessException("该bucket对外并没有开放删除权限");
+                throw new OssException("该bucket对外并没有开放删除权限");
             } catch (InvalidKeyException | NoSuchAlgorithmException | IOException e) {
                 log.error("删除测试对象时发生异常。", e);
-                throw new BusinessException("Minio 删除测试发生异常");
+                throw new OssException("Minio 删除测试发生异常");
             }
 
         } catch (Exception e) {
             log.warn("minio 测试类关闭失败");
-            throw new BusinessException(e.getMessage());
+            throw new OssException(e.getMessage());
         }
         return true;
     }

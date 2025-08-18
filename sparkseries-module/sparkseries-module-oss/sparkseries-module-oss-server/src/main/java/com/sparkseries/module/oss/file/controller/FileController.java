@@ -1,31 +1,25 @@
 package com.sparkseries.module.oss.file.controller;
 
-import com.sparkseries.module.oss.file.dto.MultipartFileDTO;
 import com.sparkseries.common.util.entity.Result;
-import com.sparkseries.common.util.exception.BusinessException;
+import com.sparkseries.module.oss.common.exception.OssException;
+import com.sparkseries.module.oss.file.dto.MultipartFileDTO;
 import com.sparkseries.module.oss.file.service.FileService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import lombok.AllArgsConstructor;
 import org.apache.tika.Tika;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.ObjectUtils;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 文件管理控制器
@@ -43,7 +37,7 @@ public class FileController {
      * 文件上传
      *
      * @param files 文件集
-     * @param path  文件存储路径
+     * @param path 文件存储路径
      * @return 上传结果
      */
     @PostMapping("file")
@@ -60,7 +54,7 @@ public class FileController {
                 fileInfos.add(
                         new MultipartFileDTO(file.getOriginalFilename(), file.getInputStream(), file.getSize(), type));
             } catch (IOException e) {
-                throw new BusinessException("文件上传失败", e);
+                throw new OssException("文件上传失败", e);
             }
         }
 
@@ -109,14 +103,14 @@ public class FileController {
     /**
      * 移动文件
      *
-     * @param id   文件ID
+     * @param id 文件ID
      * @param path 目标路径
      * @return 移动结果
      */
     @PutMapping("movement-file")
     @Operation(summary = "移动文件")
     public Result<?> moveFile(@RequestParam("id") @NotNull(message = "文件id不能为空") Long id,
-            @RequestParam("path") @NotBlank(message = "文件路径不能为空") String path) {
+                              @RequestParam("path") @NotBlank(message = "文件路径不能为空") String path) {
 
         return fileServer.moveFile(id, path);
     }
@@ -125,14 +119,14 @@ public class FileController {
     /**
      * 文件重命名
      *
-     * @param id   文件ID
+     * @param id 文件ID
      * @param name 新文件名
      * @return 重命名结果
      */
     @PutMapping("/rename/{id}")
     @Operation(summary = "文件重命名")
     public Result<?> rename(@PathVariable("id") @NotNull(message = "请输入文件id") Long id,
-            @RequestParam(value = "name") @NotBlank(message = "请输入文件名") String name) {
+                            @RequestParam(value = "name") @NotBlank(message = "请输入文件名") String name) {
 
         return fileServer.rename(id, name);
     }

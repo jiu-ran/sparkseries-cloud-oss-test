@@ -1,12 +1,12 @@
 package com.sparkseries.module.oss.switching;
 
 import com.sparkeries.enums.StorageTypeEnum;
-import com.sparkseries.common.util.exception.BusinessException;
-import com.sparkseries.module.oss.common.util.SpringBeanUtil;
-import com.sparkseries.module.oss.storage.dao.StorageMapper;
 import com.sparkseries.module.oss.cloud.entity.CloudActiveEntity;
 import com.sparkseries.module.oss.common.api.provider.factory.OssServiceFactory;
 import com.sparkseries.module.oss.common.api.provider.service.OssService;
+import com.sparkseries.module.oss.common.exception.OssException;
+import com.sparkseries.module.oss.common.util.SpringBeanUtil;
+import com.sparkseries.module.oss.storage.dao.StorageMapper;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
@@ -77,7 +77,7 @@ public class DynamicStorageSwitchService {
         OssService ossService = this.currentStrategy.get();
         if (ossService == null) {
             log.error("存储服务没有正常启动,无法进行正常操作");
-            throw new BusinessException("存储服务没有正常启动,无法进行正常操作");
+            throw new OssException("存储服务没有正常启动,无法进行正常操作");
         }
         return ossService;
     }
@@ -113,7 +113,7 @@ public class DynamicStorageSwitchService {
         } else {
             OssServiceFactory factory = factoryMap.get(storageEnum);
             if (factory == null) {
-                throw new BusinessException("没有找到类型为 " + storageEnum.name() + " 的存储服务工厂");
+                throw new OssException("没有找到类型为 " + storageEnum.name() + " 的存储服务工厂");
             }
             try {
                 OssService ossService = factory.createService(id);
@@ -123,7 +123,7 @@ public class DynamicStorageSwitchService {
                 log.info("启动存储服务成功,当前存储服务为 {}", storageEnum.name());
             } catch (Exception e) {
                 log.error("存储服务切换失败 错误信息:{}", e.getMessage());
-                throw new BusinessException("存储服务切换失败");
+                throw new OssException("存储服务切换失败");
             }
 
         }

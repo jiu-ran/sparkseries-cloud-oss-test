@@ -6,12 +6,12 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 /**
- * 用户头像信息Mapper
+ * 用户头像管理
  */
 @Mapper
 public interface AvatarMapper {
     /**
-     * 添加头像信息
+     * 添加用户头像
      *
      * @param avatar 头像信息
      * @return 受影响行数
@@ -34,7 +34,6 @@ public interface AvatarMapper {
      * @return 头像信息
      */
     String getAvatarAbsolutePathByUserId(@Param("userId") Long userId);
-
 
 
 }

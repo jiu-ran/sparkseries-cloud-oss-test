@@ -7,9 +7,9 @@ import com.aliyun.oss.model.Bucket;
 import com.aliyun.oss.model.ListObjectsRequest;
 import com.aliyun.oss.model.ObjectMetadata;
 import com.aliyun.oss.model.PutObjectRequest;
-import com.sparkseries.common.util.exception.BusinessException;
 import com.sparkseries.module.oss.cloud.dto.CloudConfigDTO;
 import com.sparkseries.module.oss.common.api.provider.service.ValidConnectService;
+import com.sparkseries.module.oss.common.exception.OssException;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.ByteArrayInputStream;
@@ -90,7 +90,7 @@ public class OssValidConnectServiceImpl implements ValidConnectService {
 
             if (!exist) {
                 log.warn("Bucket '{}' 不存在", bucketName);
-                throw new BusinessException(bucketName + "不存在 请输入存在的BucketName");
+                throw new OssException(bucketName + "不存在 请输入存在的BucketName");
             }
             log.info("Bucket '{}' 存在", bucketName);
 
@@ -99,22 +99,22 @@ public class OssValidConnectServiceImpl implements ValidConnectService {
                     oe.getErrorCode(), oe.getErrorMessage(), oe.getRequestId(), oe);
             if ("InvalidAccessKeyId".equalsIgnoreCase(oe.getErrorCode())) {
                 log.error("-> 错误原因：Access Key ID 不正确");
-                throw new BusinessException("accessKeyId 不正确 请输入正确的accessKeyId");
+                throw new OssException("accessKeyId 不正确 请输入正确的accessKeyId");
             } else if ("SignatureDoesNotMatch".equalsIgnoreCase(oe.getErrorCode())) {
                 log.error("-> 错误原因：Secret Access Key 不正确，签名不匹配");
-                throw new BusinessException("accessKeySecret不正确 签名不匹配");
+                throw new OssException("accessKeySecret不正确 签名不匹配");
             } else if ("InvalidArgument".equals(oe.getErrorCode())) {
                 log.error("Region 错误 请输入正确的Region");
-                throw new BusinessException("Region 错误 请输入正确的Region");
+                throw new OssException("Region 错误 请输入正确的Region");
             } else if ("AccessDenied".equalsIgnoreCase(oe.getErrorCode())) {
                 log.error("该API密钥权限不足");
-                throw new BusinessException("该API密钥对该: " + bucketName + "列表没有读权限");
+                throw new OssException("该API密钥对该: " + bucketName + "列表没有读权限");
             } else {
-                throw new BusinessException(oe.getErrorMessage());
+                throw new OssException(oe.getErrorMessage());
             }
         } catch (ClientException ce) {
             log.error("可能是网络连接问题或 Endpoint 地址不正确", ce);
-            throw new BusinessException("Endpoint 地址不正确");
+            throw new OssException("Endpoint 地址不正确");
         }
 
         try {
@@ -128,9 +128,9 @@ public class OssValidConnectServiceImpl implements ValidConnectService {
                     oe.getErrorCode(), oe.getErrorMessage(), oe.getRequestId(), oe);
             if ("AccessDenied".equalsIgnoreCase(oe.getErrorCode())) {
                 log.error("对bucket没有读权限");
-                throw new BusinessException("该API密钥对该: " + bucketName + "没有读权限");
+                throw new OssException("该API密钥对该: " + bucketName + "没有读权限");
             }
-            throw new BusinessException(oe.getMessage());
+            throw new OssException(oe.getMessage());
         }
 
         try {
@@ -148,9 +148,9 @@ public class OssValidConnectServiceImpl implements ValidConnectService {
                     oe.getErrorCode(), oe.getErrorMessage(), oe.getRequestId(), oe);
             if ("AccessDenied".equalsIgnoreCase(oe.getErrorCode())) {
                 log.error("对bucket没有写权限");
-                throw new BusinessException("该API密钥对该: " + bucketName + "没有写权限");
+                throw new OssException("该API密钥对该: " + bucketName + "没有写权限");
             }
-            throw new BusinessException(oe.getMessage());
+            throw new OssException(oe.getMessage());
         } finally {
             // Ensure the input stream for putObject is closed
             try {
@@ -172,9 +172,9 @@ public class OssValidConnectServiceImpl implements ValidConnectService {
                     oe.getErrorCode(), oe.getErrorMessage(), oe.getRequestId(), oe);
             if ("AccessDenied".equalsIgnoreCase(oe.getErrorCode())) {
                 log.error("对bucket没有删除权限");
-                throw new BusinessException("该API密钥对该: " + bucketName + "没有删除权限");
+                throw new OssException("该API密钥对该: " + bucketName + "没有删除权限");
             }
-            throw new BusinessException(oe.getMessage());
+            throw new OssException(oe.getMessage());
         }
 
         log.info("OSS 配置文件成功完成测试");

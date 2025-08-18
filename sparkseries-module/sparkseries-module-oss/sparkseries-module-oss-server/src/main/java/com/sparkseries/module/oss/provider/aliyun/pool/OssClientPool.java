@@ -1,9 +1,9 @@
 package com.sparkseries.module.oss.provider.aliyun.pool;
 
 import com.aliyun.oss.OSS;
-import com.sparkseries.common.util.exception.BusinessException;
-import com.sparkseries.module.oss.provider.aliyun.factory.OssClientFactory;
 import com.sparkseries.module.oss.common.config.PoolConfig;
+import com.sparkseries.module.oss.common.exception.OssException;
+import com.sparkseries.module.oss.provider.aliyun.factory.OssClientFactory;
 import org.apache.commons.pool2.impl.GenericObjectPool;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 
@@ -40,7 +40,7 @@ public class OssClientPool {
         try {
             return pool.borrowObject();
         } catch (Exception e) {
-            throw new BusinessException("获取OSS客户端失败", e);
+            throw new OssException("获取OSS客户端失败", e);
         }
     }
 

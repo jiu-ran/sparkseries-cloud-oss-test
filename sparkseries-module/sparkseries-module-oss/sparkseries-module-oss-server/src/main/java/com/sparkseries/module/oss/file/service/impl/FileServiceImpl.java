@@ -2,18 +2,18 @@ package com.sparkseries.module.oss.file.service.impl;
 
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.core.toolkit.ObjectUtils;
-import com.sparkseries.module.oss.file.dto.MultipartFileDTO;
 import com.sparkeries.enums.StorageTypeEnum;
-import com.sparkseries.module.oss.common.util.FileUtils;
 import com.sparkseries.common.util.entity.Result;
-import com.sparkseries.common.util.exception.BusinessException;
+import com.sparkseries.module.oss.common.api.provider.service.OssService;
+import com.sparkseries.module.oss.common.exception.OssException;
+import com.sparkseries.module.oss.common.util.FileUtils;
 import com.sparkseries.module.oss.file.dao.FileMetadataMapper;
+import com.sparkseries.module.oss.file.dto.MultipartFileDTO;
 import com.sparkseries.module.oss.file.entity.FileMetadataEntity;
 import com.sparkseries.module.oss.file.entity.FolderMetadataEntity;
 import com.sparkseries.module.oss.file.service.FileService;
 import com.sparkseries.module.oss.file.vo.FilesAndFoldersVO;
 import com.sparkseries.module.oss.switching.DynamicStorageSwitchService;
-import com.sparkseries.module.oss.common.api.provider.service.OssService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -54,7 +54,7 @@ public class FileServiceImpl implements FileService {
     private OssService getCurrentStorageService() {
         OssService service = provider.getCurrentStrategy();
         if (service == null) {
-            throw new BusinessException("当前没有可用的存储服务");
+            throw new OssException("当前没有可用的存储服务");
         }
         return service;
     }
@@ -73,7 +73,7 @@ public class FileServiceImpl implements FileService {
         // 判断路径是否合法
         FileUtils.isValidPath(path);
         if (path.startsWith(AVATAR_PATH_PREFIX)) {
-            throw new BusinessException("'avatar/' 文件目录属于系统文件你无权操作");
+            throw new OssException("'avatar/' 文件目录属于系统文件你无权操作");
         }
         log.info("批量文件上传开始，文件数量: {}，目标路径: {}", files.size(), path);
 
@@ -98,7 +98,7 @@ public class FileServiceImpl implements FileService {
         FileUtils.isValidPath(path);
 
         if (path.startsWith(AVATAR_PATH_PREFIX)) {
-            throw new BusinessException("'avatar/' 文件目录属于系统文件你无权操作");
+            throw new OssException("'avatar/' 文件目录属于系统文件你无权操作");
         }
 
         log.info("调用文件存储服务创建文件夹: {}", path);
@@ -134,7 +134,7 @@ public class FileServiceImpl implements FileService {
         StorageTypeEnum storageType = getCurrentStorageService().getStorageType();
         FileMetadataEntity file = metadataMapper.getFileMetadataById(id, storageType);
         if (ObjectUtils.isEmpty(file)) {
-            throw new BusinessException("文件不存在,删除失败");
+            throw new OssException("文件不存在,删除失败");
         }
 
         String filename = file.getFileName();
@@ -142,7 +142,7 @@ public class FileServiceImpl implements FileService {
         String path = file.getStoragePath();
 
         if (path.startsWith(AVATAR_PATH_PREFIX)) {
-            throw new BusinessException("'avatar/' 文件目录属于系统文件你无权操作");
+            throw new OssException("'avatar/' 文件目录属于系统文件你无权操作");
         }
 
         String absolutePath = path + filename;
@@ -150,13 +150,13 @@ public class FileServiceImpl implements FileService {
         boolean deleteFile = getCurrentStorageService().deleteFile(absolutePath);
 
         if (!deleteFile) {
-            throw new BusinessException("文件删除失败");
+            throw new OssException("文件删除失败");
         }
 
         int rows = metadataMapper.deleteFileById(id, storageType);
 
         if (rows <= 0) {
-            throw new BusinessException("数据库删除失败");
+            throw new OssException("数据库删除失败");
         }
 
         log.info("文件删除成功 文件id:{}", id);
@@ -179,7 +179,7 @@ public class FileServiceImpl implements FileService {
         FileUtils.isValidPath(path);
 
         if (path.startsWith(AVATAR_PATH_PREFIX)) {
-            throw new BusinessException("'avatar/' 文件目录属于系统文件你无权操作");
+            throw new OssException("'avatar/' 文件目录属于系统文件你无权操作");
         }
 
         boolean deleteFolder = getCurrentStorageService().deleteFolder(path);
@@ -211,7 +211,7 @@ public class FileServiceImpl implements FileService {
         FileMetadataEntity metadata = metadataMapper.getFileMetadataById(id, storageType);
 
         if (ObjectUtils.isEmpty(metadata)) {
-            throw new BusinessException("文件不存在");
+            throw new OssException("文件不存在");
         }
 
         String normalizedFilename = FileUtils.normalizeFileName(newName);
@@ -225,17 +225,17 @@ public class FileServiceImpl implements FileService {
         Integer existFileByName = metadataMapper.isExistFileByName(normalizedFilename, path, storageType);
 
         if (existFileByName > 0) {
-            throw new BusinessException("文件名已被使用");
+            throw new OssException("文件名已被使用");
         }
 
         boolean rename = getCurrentStorageService().rename(id, filename, normalizedFilename, path);
 
         if (!rename) {
-            throw new BusinessException("重命名失败");
+            throw new OssException("重命名失败");
         }
 
         if (metadataMapper.updateFileName(id, id + normalizedFilename, normalizedFilename, storageType) <= 0) {
-            throw new BusinessException("数据库文件重命名失败");
+            throw new OssException("数据库文件重命名失败");
         }
 
         log.info("重命名成功");
@@ -253,13 +253,13 @@ public class FileServiceImpl implements FileService {
     public Result<?> downloadFile(Long id) {
         StorageTypeEnum storageType = getCurrentStorageService().getStorageType();
         if (metadataMapper.isExistFileById(id, storageType) <= 0) {
-            throw new BusinessException("文件不存在");
+            throw new OssException("文件不存在");
         }
 
         FileMetadataEntity file = metadataMapper.getFileMetadataById(id, storageType);
 
         if (ObjectUtils.isEmpty(file)) {
-            throw new BusinessException("文件不存在");
+            throw new OssException("文件不存在");
         }
 
         String originalName = file.getOriginalName();
@@ -273,7 +273,7 @@ public class FileServiceImpl implements FileService {
         String url = getCurrentStorageService().downLoad(absolutePath, originalName);
 
         if (ObjectUtils.isEmpty(url)) {
-            throw new BusinessException("获取url路径失败");
+            throw new OssException("获取url路径失败");
         }
         log.info("成功获取文件:{}下载链接", originalName);
         return Result.ok("获取成功", url);
@@ -292,7 +292,7 @@ public class FileServiceImpl implements FileService {
 
         if (ObjectUtils.isEmpty(fileMetadataEntity)) {
             log.error("[本地存储] 文件不存在");
-            throw new BusinessException("文件不存在");
+            throw new OssException("文件不存在");
         }
 
         return getCurrentStorageService().downLocalFile(fileMetadataEntity);
@@ -310,7 +310,7 @@ public class FileServiceImpl implements FileService {
         path = FileUtils.normalizePath(path);
 
         if (path.startsWith(AVATAR_PATH_PREFIX)) {
-            throw new BusinessException("'avatar/' 文件目录属于系统文件你无权操作");
+            throw new OssException("'avatar/' 文件目录属于系统文件你无权操作");
         }
 
         // 判断路径是否合法
@@ -356,7 +356,7 @@ public class FileServiceImpl implements FileService {
 
         if (ObjectUtils.isEmpty(fileMetadataEntity)) {
             log.error("文件不存在");
-            throw new BusinessException("文件不存在");
+            throw new OssException("文件不存在");
         }
 
         return getCurrentStorageService().previewLocalFile(fileMetadataEntity);
@@ -375,7 +375,7 @@ public class FileServiceImpl implements FileService {
         StorageTypeEnum storageType = getCurrentStorageService().getStorageType();
 
         if (metadataMapper.isExistFileById(id, storageType) <= 0) {
-            throw new BusinessException("该文件不存在");
+            throw new OssException("该文件不存在");
         }
 
         newPath = FileUtils.normalizePath(newPath);
@@ -383,7 +383,7 @@ public class FileServiceImpl implements FileService {
         FileUtils.isValidPath(newPath);
 
         if (newPath.startsWith(AVATAR_PATH_PREFIX)) {
-            throw new BusinessException("'avatar/' 文件目录属于系统文件你无权操作");
+            throw new OssException("'avatar/' 文件目录属于系统文件你无权操作");
         }
 
 
@@ -394,18 +394,18 @@ public class FileServiceImpl implements FileService {
         String targetPath = newPath + filename;
 
         if (metadataMapper.isExistFileByName(filename, newPath, storageType) > 0) {
-            throw new BusinessException("文件名已被使用");
+            throw new OssException("文件名已被使用");
         }
 
         boolean moveFile = getCurrentStorageService().moveFile(sourcePath, targetPath);
 
         if (!moveFile) {
-            throw new BusinessException("文件移动失败");
+            throw new OssException("文件移动失败");
         }
 
         Integer row = metadataMapper.updatePath(id, newPath, storageType);
         if (row <= 0) {
-            throw new BusinessException("数据库文件移动失败");
+            throw new OssException("数据库文件移动失败");
         }
         return Result.ok("文件移动成功");
     }
@@ -433,7 +433,7 @@ public class FileServiceImpl implements FileService {
         // 查询指定路径下该文件是否存在
         if (metadataMapper.isExistFileByName(originalFilename, path, storageType) != 0) {
             log.error("文件名:{} 路径:{} 文件在该路径下已存在", originalFilename, path);
-            throw new BusinessException(path + "路径下已存在" + originalFilename + "文件");
+            throw new OssException(path + "路径下已存在" + originalFilename + "文件");
         }
         file.setFilename(originalFilename);
 
@@ -466,7 +466,7 @@ public class FileServiceImpl implements FileService {
 
         if (rows <= 0) {
             log.error("数据库添加文件元数据失败，文件: {}", absolutePath);
-            throw new BusinessException("数据库添加文件失败");
+            throw new OssException("数据库添加文件失败");
         }
         log.info("文件元数据保存到数据库成功，ID: {}", id);
 

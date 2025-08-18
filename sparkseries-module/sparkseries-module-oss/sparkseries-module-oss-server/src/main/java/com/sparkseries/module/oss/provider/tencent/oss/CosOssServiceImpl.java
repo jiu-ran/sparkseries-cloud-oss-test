@@ -1,57 +1,37 @@
 package com.sparkseries.module.oss.provider.tencent.oss;
 
-import static com.qcloud.cos.http.HttpMethodName.GET;
-import static com.sparkeries.constant.Constants.COS_SIZE_THRESHOLD;
-import static com.sparkeries.enums.StorageTypeEnum.COS;
-
 import com.qcloud.cos.COSClient;
 import com.qcloud.cos.event.ProgressEventType;
-import com.qcloud.cos.model.COSObjectSummary;
-import com.qcloud.cos.model.CopyObjectRequest;
-import com.qcloud.cos.model.DeleteObjectsRequest;
-import com.qcloud.cos.model.DeleteObjectsResult;
-import com.qcloud.cos.model.GeneratePresignedUrlRequest;
-import com.qcloud.cos.model.ListObjectsRequest;
-import com.qcloud.cos.model.ObjectListing;
-import com.qcloud.cos.model.ObjectMetadata;
-import com.qcloud.cos.model.PutObjectRequest;
-import com.qcloud.cos.model.PutObjectResult;
-import com.qcloud.cos.model.ResponseHeaderOverrides;
+import com.qcloud.cos.model.*;
 import com.qcloud.cos.transfer.TransferManager;
 import com.qcloud.cos.transfer.Upload;
-import com.sparkseries.module.oss.file.dto.MultipartFileDTO;
 import com.sparkeries.enums.StorageTypeEnum;
-import com.sparkseries.common.util.exception.BusinessException;
+import com.sparkseries.module.oss.common.api.provider.service.OssService;
+import com.sparkseries.module.oss.common.exception.OssException;
 import com.sparkseries.module.oss.file.dao.FileMetadataMapper;
+import com.sparkseries.module.oss.file.dto.MultipartFileDTO;
 import com.sparkseries.module.oss.file.entity.FileMetadataEntity;
 import com.sparkseries.module.oss.file.vo.FileInfoVO;
 import com.sparkseries.module.oss.file.vo.FilesAndFoldersVO;
 import com.sparkseries.module.oss.file.vo.FolderInfoVO;
 import com.sparkseries.module.oss.provider.tencent.pool.CosClientPool;
-import com.sparkseries.module.oss.common.api.provider.service.OssService;
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.codec.CharEncoding;
+import org.apache.commons.codec.net.URLCodec;
+import org.springframework.http.ResponseEntity;
+
+import java.io.*;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.RejectedExecutionHandler;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.codec.CharEncoding;
-import org.apache.commons.codec.net.URLCodec;
-import org.springframework.http.ResponseEntity;
+import static com.qcloud.cos.http.HttpMethodName.GET;
+import static com.sparkeries.constant.Constants.COS_SIZE_THRESHOLD;
+import static com.sparkeries.enums.StorageTypeEnum.COS;
 
 /**
  * COS文件存储服务实现
@@ -117,7 +97,7 @@ public class CosOssServiceImpl implements OssService {
                     "COS 文件上传失败 - 文件名: {}, 大小: {} bytes, 路径: {}, 耗时: {} ms, 错误信息: {}",
                     file.getFilename(), file.getSize(), file.getAbsolutePath(), duration,
                     e.getMessage(), e);
-            throw new BusinessException("文件上传失败: " + e.getMessage());
+            throw new OssException("文件上传失败: " + e.getMessage());
         } finally {
             // 确保资源正确释放
             closeResources(transferManager, threadPool, client);
@@ -128,7 +108,7 @@ public class CosOssServiceImpl implements OssService {
      * 上传小文件
      *
      * @param client COS客户端
-     * @param file   文件信息
+     * @param file 文件信息
      * @return 上传是否成功
      */
     private boolean uploadSmallFile(COSClient client, MultipartFileDTO file) {
@@ -147,19 +127,19 @@ public class CosOssServiceImpl implements OssService {
             long duration = System.currentTimeMillis() - startTime;
             log.error("COS 小文件上传失败 - 文件: {}, 大小: {} bytes, 耗时: {} ms, 错误信息: {}",
                     file.getAbsolutePath(), file.getSize(), duration, e.getMessage(), e);
-            throw new BusinessException("小文件上传失败: " + e.getMessage());
+            throw new OssException("小文件上传失败: " + e.getMessage());
         }
     }
 
     /**
      * 上传大文件（分片上传）
      *
-     * @param file            文件信息
+     * @param file 文件信息
      * @param transferManager 传输管理器
      * @return 上传是否成功
      */
     private boolean uploadLargeFile(MultipartFileDTO file,
-            TransferManager transferManager) {
+                                    TransferManager transferManager) {
         File tempFile = null;
         long startTime = System.currentTimeMillis();
         log.debug("COS 开始大文件分片上传 - 文件: {}, 大小: {} bytes", file.getAbsolutePath(),
@@ -192,13 +172,13 @@ public class CosOssServiceImpl implements OssService {
             long duration = System.currentTimeMillis() - startTime;
             log.error("COS 大文件上传被中断 - 文件: {}, 大小: {} bytes, 耗时: {} ms",
                     file.getAbsolutePath(), file.getSize(), duration);
-            throw new BusinessException("大文件上传被中断");
+            throw new OssException("大文件上传被中断");
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
             log.error(
                     "COS 大文件分片上传失败 - 文件: {}, 大小: {} bytes, 耗时: {} ms, 错误信息: {}",
                     file.getAbsolutePath(), file.getSize(), duration, e.getMessage(), e);
-            throw new BusinessException("大文件上传失败: " + e.getMessage());
+            throw new OssException("大文件上传失败: " + e.getMessage());
         } finally {
             cleanupTempFile(tempFile);
         }
@@ -215,7 +195,7 @@ public class CosOssServiceImpl implements OssService {
         File tempFile = File.createTempFile("cos_upload_", "_" + file.getFilename());
 
         try (InputStream inputStream = file.getInputStream();
-                FileOutputStream fos = new FileOutputStream(tempFile)) {
+             FileOutputStream fos = new FileOutputStream(tempFile)) {
             inputStream.transferTo(fos);
         }
 
@@ -226,7 +206,7 @@ public class CosOssServiceImpl implements OssService {
      * 监控上传进度
      *
      * @param upload 上传对象
-     * @param file   文件信息
+     * @param file 文件信息
      */
     private void monitorUploadProgress(Upload upload, MultipartFileDTO file) {
         upload.addProgressListener(progressEvent -> {
@@ -290,11 +270,11 @@ public class CosOssServiceImpl implements OssService {
      * 关闭资源
      *
      * @param transferManager 传输管理器
-     * @param threadPool      线程池
-     * @param client          COS客户端
+     * @param threadPool 线程池
+     * @param client COS客户端
      */
     private void closeResources(TransferManager transferManager, ExecutorService threadPool,
-            COSClient client) {
+                                COSClient client) {
         // 关闭TransferManager
         if (transferManager != null) {
             try {
@@ -404,7 +384,7 @@ public class CosOssServiceImpl implements OssService {
             long duration = System.currentTimeMillis() - startTime;
             log.error("COS 创建文件夹失败 - 路径: {}, 耗时: {} ms, 错误信息: {}", path, duration,
                     e.getMessage(), e);
-            throw new BusinessException("创建文件夹失败: " + e.getMessage());
+            throw new OssException("创建文件夹失败: " + e.getMessage());
         } finally {
             // 确保客户端归还到池中
             if (client != null) {
@@ -452,7 +432,7 @@ public class CosOssServiceImpl implements OssService {
             long duration = System.currentTimeMillis() - startTime;
             log.error("COS 删除文件失败 - 路径: {}, 耗时: {} ms, 错误信息: {}", absolutePath,
                     duration, e.getMessage(), e);
-            throw new BusinessException("删除文件失败: " + e.getMessage());
+            throw new OssException("删除文件失败: " + e.getMessage());
         } finally {
             // 确保客户端归还到池中
             if (client != null) {
@@ -520,7 +500,7 @@ public class CosOssServiceImpl implements OssService {
             long duration = System.currentTimeMillis() - startTime;
             log.error("COS 删除文件夹失败 - 路径: {}, 耗时: {} ms, 错误信息: {}", path, duration,
                     e.getMessage(), e);
-            throw new BusinessException("删除文件夹失败: " + e.getMessage());
+            throw new OssException("删除文件夹失败: " + e.getMessage());
         } finally {
             // 确保客户端归还到池中
             if (client != null) {
@@ -538,7 +518,7 @@ public class CosOssServiceImpl implements OssService {
     /**
      * 生成文件下载链接
      *
-     * @param absolutePath     文件绝对路径
+     * @param absolutePath 文件绝对路径
      * @param downloadFileName 下载文件名
      * @return 下载链接
      */
@@ -583,7 +563,7 @@ public class CosOssServiceImpl implements OssService {
             log.error(
                     "COS 生成下载链接失败 - 文件路径: {}, 下载文件名: {}, 耗时: {} ms, 错误信息: {}",
                     absolutePath, downloadFileName, duration, e.getMessage(), e);
-            throw new BusinessException("生成下载URL失败: " + e.getMessage());
+            throw new OssException("生成下载URL失败: " + e.getMessage());
         } finally {
             // 确保客户端归还到池中
             if (client != null) {
@@ -612,10 +592,10 @@ public class CosOssServiceImpl implements OssService {
     /**
      * 重命名文件
      *
-     * @param id          文件ID
-     * @param filename    原文件名
+     * @param id 文件ID
+     * @param filename 原文件名
      * @param newFilename 新文件名
-     * @param path        文件路径
+     * @param path 文件路径
      * @return 重命名是否成功
      */
     @Override
@@ -649,7 +629,7 @@ public class CosOssServiceImpl implements OssService {
             boolean deleteFile = deleteFile(sourceAbsolutePath);
 
             if (!deleteFile) {
-                throw new BusinessException("文件重命名失败: 原文件删除失败");
+                throw new OssException("文件重命名失败: 原文件删除失败");
             }
 
             log.info("COS 原文件删除成功: {}", sourceAbsolutePath);
@@ -662,7 +642,7 @@ public class CosOssServiceImpl implements OssService {
             long duration = System.currentTimeMillis() - startTime;
             log.error("COS 文件重命名失败 - 原路径: {}, 新路径: {}, 耗时: {} ms, 错误信息: {}",
                     sourceAbsolutePath, targetAbsolutePath, duration, e.getMessage(), e);
-            throw new BusinessException("文件重命名失败: " + e.getMessage());
+            throw new OssException("文件重命名失败: " + e.getMessage());
         } finally {
             // 确保客户端归还到池中
             if (client != null) {
@@ -687,9 +667,9 @@ public class CosOssServiceImpl implements OssService {
 
         log.info("COS 开始列出文件和文件夹 - 路径: {}", path);
 
-        List<FileInfoVO> fileInfos = fileMetadataMapper.listFileByPath(path,COS);
+        List<FileInfoVO> fileInfos = fileMetadataMapper.listFileByPath(path, COS);
 
-        Set<FolderInfoVO> folders = fileMetadataMapper.listFolderByPath(path,COS).stream()
+        Set<FolderInfoVO> folders = fileMetadataMapper.listFolderByPath(path, COS).stream()
                 .map(s -> new FolderInfoVO(s.replace(path, "").split("/")[0], path)).collect(Collectors.toSet());
         fileMetadataMapper.listFolderNameByPath(path, COS).stream().map(s -> new FolderInfoVO(s, path)).forEach(folders::add);
 
@@ -738,7 +718,7 @@ public class CosOssServiceImpl implements OssService {
             long duration = System.currentTimeMillis() - startTime;
             log.error("COS 文件预览URL生成失败 - 路径: {}, 耗时: {} ms, 错误信息: {}", absolutePath,
                     duration, e.getMessage(), e);
-            throw new BusinessException("获取对应url失败: " + e.getMessage());
+            throw new OssException("获取对应url失败: " + e.getMessage());
         } finally {
             if (client != null) {
                 try {
@@ -820,7 +800,7 @@ public class CosOssServiceImpl implements OssService {
             long duration = System.currentTimeMillis() - startTime;
             log.error("COS 文件移动失败 - 源路径: {}, 目标路径: {}, 耗时: {} ms, 错误信息: {}",
                     sourceAbsolutePath, targetAbsolutePath, duration, e.getMessage(), e);
-            throw new BusinessException("文件移动失败: " + e.getMessage());
+            throw new OssException("文件移动失败: " + e.getMessage());
         } finally {
             // 确保客户端归还到池中
             if (client != null) {

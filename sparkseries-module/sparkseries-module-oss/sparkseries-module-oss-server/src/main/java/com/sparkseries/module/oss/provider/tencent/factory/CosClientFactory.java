@@ -6,7 +6,7 @@ import com.qcloud.cos.auth.BasicCOSCredentials;
 import com.qcloud.cos.auth.COSCredentials;
 import com.qcloud.cos.http.HttpProtocol;
 import com.qcloud.cos.region.Region;
-import com.sparkseries.common.util.exception.BusinessException;
+import com.sparkseries.module.oss.common.exception.OssException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.pool2.BasePooledObjectFactory;
 import org.apache.commons.pool2.PooledObject;
@@ -73,7 +73,7 @@ public class CosClientFactory extends BasePooledObjectFactory<COSClient> {
             client.getBucketLocation(bucketName); // 测试请求
             return true;
         } catch (Exception e) {
-            throw new BusinessException("COS客户端连接失败");
+            throw new OssException("COS客户端连接失败");
         }
     }
 }

@@ -1,7 +1,8 @@
 package com.sparkseries.module.oss.common.util;
 
 import com.baomidou.mybatisplus.core.toolkit.ObjectUtils;
-import com.sparkseries.common.util.exception.BusinessException;
+
+import com.sparkseries.module.oss.common.exception.OssException;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
@@ -38,22 +39,22 @@ public class FileUtils {
 
         if (ObjectUtils.isEmpty(filename)) {
             log.error("文件名为空");
-            throw new BusinessException("文件名为空");
+            throw new OssException("文件名为空");
         }
 
         if (filename.length() > 255) {
             log.error("文件名长度超过255");
-            throw new BusinessException("文件名长度超过255");
+            throw new OssException("文件名长度超过255");
         }
 
         if (ILLEGAL_CHAR_PATTERN.matcher(filename).find()) {
             log.error("文件名包含非法字符");
-            throw new BusinessException("文件名包含非法字符");
+            throw new OssException("文件名包含非法字符");
         }
 
         if (CONSECUTIVE_DOTS_PATTERN.matcher(filename).find()) {
             log.error("文件名包含连续点号");
-            throw new BusinessException("文件名包含连续点号");
+            throw new OssException("文件名包含连续点号");
         }
 
     }
@@ -89,18 +90,18 @@ public class FileUtils {
     public static void isValidPath(String path) {
         if (ObjectUtils.isEmpty(path)) {
             log.error("路径为空");
-            throw new BusinessException("路径为空");
+            throw new OssException("路径为空");
         }
 
         if (path.matches("^[A-Za-z]:/.*")) {
             log.error("路径格式不正确");
-            throw new BusinessException("路径格式不正确");
+            throw new OssException("路径格式不正确");
         }
 
         // 检查非法字符
         if (ILLEGAL_CHARS_PATTERN.matcher(path).find()) {
             log.error("路径包含非法字符");
-            throw new BusinessException("路径包含非法字符");
+            throw new OssException("路径包含非法字符");
         }
     }
 

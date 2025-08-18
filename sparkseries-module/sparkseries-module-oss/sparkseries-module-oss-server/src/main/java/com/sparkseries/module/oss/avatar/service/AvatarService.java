@@ -5,15 +5,16 @@ import com.sparkseries.common.util.entity.Result;
 import org.springframework.http.ResponseEntity;
 
 /**
- * 头像服务接口
+ * 用户头像管理
  */
 public interface AvatarService {
+
     /**
      * 上传用户头像
      *
-     * @param avatar 头像文件
+     * @param avatar 头像图片
      * @param userId 用户ID
-     * @return 包含操作结果的Result对象
+     * @return 上传结果信息
      */
     Result<String> uploadAvatar(MultipartFileDTO avatar, Long userId);
 
@@ -21,7 +22,7 @@ public interface AvatarService {
      * 更新用户头像
      *
      * @param avatar 头像文件
-     * @return 包含操作结果的Result对象
+     * @return 默认响应类
      */
     Result<?> updateAvatar(MultipartFileDTO avatar);
 
@@ -29,7 +30,7 @@ public interface AvatarService {
      * 获取用户头像
      *
      * @param userId 用户ID
-     * @return 包含用户头像的Result对象
+     * @return 用户头像 url 地址
      */
     Result<String> getUserAvatar(Long userId);
 
@@ -37,7 +38,7 @@ public interface AvatarService {
      * 预览本地用户头像
      *
      * @param userId 用户ID
-     * @return 包含头像内容的ResponseEntity对象
+     * @return 文件预览响应
      */
     ResponseEntity<?> previewLocalAvatar(Long userId);
 

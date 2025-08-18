@@ -104,6 +104,12 @@
             <artifactId>sparkseries-module-oss-client</artifactId>
             <version>${revision}</version>
         </dependency>
+        <dependency>
+            <groupId>com.sparkseries</groupId>
+            <artifactId>sparkseries-common-security</artifactId>
+            <version>1.0.0</version>
+            <scope>compile</scope>
+        </dependency>
 
     </dependencies>
 

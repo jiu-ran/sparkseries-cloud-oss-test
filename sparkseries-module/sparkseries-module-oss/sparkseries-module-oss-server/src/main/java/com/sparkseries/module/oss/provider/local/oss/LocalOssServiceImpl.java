@@ -1,14 +1,14 @@
 package com.sparkseries.module.oss.provider.local.oss;
 
-import com.sparkseries.module.oss.file.dto.MultipartFileDTO;
 import com.sparkeries.enums.StorageTypeEnum;
-import com.sparkseries.common.util.exception.BusinessException;
+import com.sparkseries.module.oss.common.api.provider.service.OssService;
+import com.sparkseries.module.oss.common.exception.OssException;
 import com.sparkseries.module.oss.file.dao.FileMetadataMapper;
+import com.sparkseries.module.oss.file.dto.MultipartFileDTO;
 import com.sparkseries.module.oss.file.entity.FileMetadataEntity;
 import com.sparkseries.module.oss.file.vo.FileInfoVO;
 import com.sparkseries.module.oss.file.vo.FilesAndFoldersVO;
 import com.sparkseries.module.oss.file.vo.FolderInfoVO;
-import com.sparkseries.module.oss.common.api.provider.service.OssService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.EncoderException;
 import org.apache.commons.codec.net.URLCodec;
@@ -107,7 +107,7 @@ public class LocalOssServiceImpl implements OssService {
             log.error("[上传文件操作] 文件上传失败: {}", e.getMessage(), e);
             log.error("本地存储文件上传失败 - 文件名: {}, 路径: {}, 耗时: {} ms, 错误信息: {}",
                     originalFileName, fullPath, duration, e.getMessage(), e);
-            throw new BusinessException("本地保存失败: " + e.getMessage());
+            throw new OssException("本地保存失败: " + e.getMessage());
         }
     }
 
@@ -174,7 +174,7 @@ public class LocalOssServiceImpl implements OssService {
             log.error("[创建文件夹操作] 创建文件夹失败: {}", e.getMessage(), e);
             log.error("本地存储目录创建失败 - 路径: {}, 耗时: {} ms, 错误信息: {}",
                     path, duration, e.getMessage(), e);
-            throw new BusinessException("创建目录失败: " + e.getMessage());
+            throw new OssException("创建目录失败: " + e.getMessage());
         }
     }
 
@@ -197,7 +197,7 @@ public class LocalOssServiceImpl implements OssService {
             boolean exists = Files.exists(path);
             if (!exists) {
                 log.warn("文件不存在，无法删除: {}", absolutePath);
-                throw new BusinessException("该文件不存在");
+                throw new OssException("该文件不存在");
             }
 
             // 获取文件大小用于日志记录
@@ -212,7 +212,7 @@ public class LocalOssServiceImpl implements OssService {
             boolean result = Files.deleteIfExists(path);
             if (!result) {
                 log.error("文件删除操作返回false: {}", absolutePath);
-                throw new BusinessException("文件删除失败");
+                throw new OssException("文件删除失败");
             }
 
             long duration = System.currentTimeMillis() - startTime;
@@ -224,7 +224,7 @@ public class LocalOssServiceImpl implements OssService {
             log.error("[删除文件操作] 删除文件失败: {}", e.getMessage(), e);
             log.error("本地存储文件删除失败 - 路径: {}, 耗时: {} ms, 错误信息: {}",
                     absolutePath, duration, e.getMessage(), e);
-            throw new BusinessException("文件删除失败: " + e.getMessage());
+            throw new OssException("文件删除失败: " + e.getMessage());
         }
     }
 
@@ -247,7 +247,7 @@ public class LocalOssServiceImpl implements OssService {
             boolean exists = Files.exists(folder);
             if (!exists) {
                 log.warn("文件夹不存在，无法删除: {}", dir);
-                throw new BusinessException("该文件夹不存在");
+                throw new OssException("该文件夹不存在");
             }
 
             // 统计删除的文件和文件夹数量
@@ -290,7 +290,7 @@ public class LocalOssServiceImpl implements OssService {
             log.error("[删除文件夹操作] 删除文件夹失败: {}", e.getMessage(), e);
             log.error("本地存储文件夹删除失败 - 路径: {}, 耗时: {} ms, 错误信息: {}",
                     dir, duration, e.getMessage(), e);
-            throw new BusinessException("文件夹删除失败: " + e.getMessage());
+            throw new OssException("文件夹删除失败: " + e.getMessage());
         }
     }
 
@@ -378,7 +378,7 @@ public class LocalOssServiceImpl implements OssService {
             // 验证源文件是否存在
             if (!Files.exists(source)) {
                 log.warn("文件重命名失败，源文件不存在: {}", path);
-                throw new BusinessException("源文件不存在");
+                throw new OssException("源文件不存在");
             }
 
             // 获取文件大小用于日志记录
@@ -411,7 +411,7 @@ public class LocalOssServiceImpl implements OssService {
      *
      * @param path 要列出的路径
      * @return 包含文件和文件夹信息的VO对象
-     * @throws BusinessException 如果目录不存在
+     * @throws OssException 如果目录不存在
      * @throws RuntimeException  如果读取目录时发生IO错误
      */
     @Override
@@ -517,7 +517,7 @@ public class LocalOssServiceImpl implements OssService {
             log.debug("验证源文件是否存在");
             if (!Files.exists(source)) {
                 log.warn("文件移动失败，源文件不存在: {}", sourceAbsolutePath);
-                throw new BusinessException("该文件不存在无法移动");
+                throw new OssException("该文件不存在无法移动");
             }
 
             // 获取文件信息用于日志记录
@@ -618,7 +618,7 @@ public class LocalOssServiceImpl implements OssService {
                     file.getFilename(), duration, e.getMessage(), e);
             // 清理临时文件
             cleanupTempFile(tempPath);
-            throw new BusinessException("小文件上传失败: " + e.getMessage());
+            throw new OssException("小文件上传失败: " + e.getMessage());
         }
     }
 
@@ -689,7 +689,7 @@ public class LocalOssServiceImpl implements OssService {
                     file.getFilename(), duration, e.getMessage(), e);
             // 清理临时文件
             cleanupTempFile(tempPath);
-            throw new BusinessException("大文件分块上传失败: " + e.getMessage());
+            throw new OssException("大文件分块上传失败: " + e.getMessage());
         }
     }
 
@@ -705,7 +705,7 @@ public class LocalOssServiceImpl implements OssService {
             long usableSpace = Files.getFileStore(basePathObj).getUsableSpace();
 
             if (fileSize > usableSpace) {
-                throw new BusinessException("磁盘空间不足，无法保存文件");
+                throw new OssException("磁盘空间不足，无法保存文件");
             }
 
             // 预留一些空间（至少保留100MB）
@@ -794,7 +794,7 @@ public class LocalOssServiceImpl implements OssService {
             log.debug("检查头像文件是否存在: {}", filePath);
             if (!Files.exists(filePath)) {
                 log.warn("头像文件不存在: {}", filePath);
-                throw new BusinessException("头像文件不存在");
+                throw new OssException("头像文件不存在");
             }
 
             // 构建可访问的URL，使用配置的URL映射

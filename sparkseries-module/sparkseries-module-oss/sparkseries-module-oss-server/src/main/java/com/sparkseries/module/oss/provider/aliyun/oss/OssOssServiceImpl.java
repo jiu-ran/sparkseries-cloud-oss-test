@@ -4,16 +4,16 @@ package com.sparkseries.module.oss.provider.aliyun.oss;
 import com.aliyun.oss.HttpMethod;
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.model.*;
-import com.sparkseries.module.oss.file.dto.MultipartFileDTO;
 import com.sparkeries.enums.StorageTypeEnum;
-import com.sparkseries.common.util.exception.BusinessException;
+import com.sparkseries.module.oss.common.api.provider.service.OssService;
+import com.sparkseries.module.oss.common.exception.OssException;
 import com.sparkseries.module.oss.file.dao.FileMetadataMapper;
+import com.sparkseries.module.oss.file.dto.MultipartFileDTO;
 import com.sparkseries.module.oss.file.entity.FileMetadataEntity;
 import com.sparkseries.module.oss.file.vo.FileInfoVO;
 import com.sparkseries.module.oss.file.vo.FilesAndFoldersVO;
 import com.sparkseries.module.oss.file.vo.FolderInfoVO;
 import com.sparkseries.module.oss.provider.aliyun.pool.OssClientPool;
-import com.sparkseries.module.oss.common.api.provider.service.OssService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 
@@ -80,7 +80,7 @@ public class OssOssServiceImpl implements OssService {
         } catch (Exception e) {
             log.error("[上传文件操作] 文件上传失败: key={}, size={}, 错误: {}",
                     file.getAbsolutePath(), file.getSize(), e.getMessage(), e);
-            throw new BusinessException("文件上传失败: " + e.getMessage());
+            throw new OssException("文件上传失败: " + e.getMessage());
         } finally {
             if (client != null) {
                 log.debug("[上传文件操作] 归还OSS客户端连接到连接池");
@@ -128,7 +128,7 @@ public class OssOssServiceImpl implements OssService {
             boolean exists = client.doesObjectExist(bucketName, path);
             if (exists) {
                 log.warn("[创建文件夹操作] 文件夹已存在: {}", path);
-                throw new BusinessException("文件夹已存在 创建失败");
+                throw new OssException("文件夹已存在 创建失败");
             }
 
             log.debug("[创建文件夹操作] 文件夹不存在，开始创建文件夹");
@@ -138,12 +138,12 @@ public class OssOssServiceImpl implements OssService {
             log.info("[创建文件夹操作] 文件夹创建成功: {}", path);
 
             return true;
-        } catch (BusinessException e) {
+        } catch (OssException e) {
             log.error("[创建文件夹操作] 业务异常: {}", e.getMessage());
-            throw new BusinessException(e.getMessage());
+            throw new OssException(e.getMessage());
         } catch (Exception e) {
             log.error("[创建文件夹操作] 创建文件夹时发生异常: {}", e.getMessage(), e);
-            throw new BusinessException("OSS 创建目录失败");
+            throw new OssException("OSS 创建目录失败");
         } finally {
             if (client != null) {
                 log.debug("[创建文件夹操作] 归还OSS客户端连接到连接池");
@@ -173,7 +173,7 @@ public class OssOssServiceImpl implements OssService {
             return true;
         } catch (Exception e) {
             log.error("[删除文件操作] 文件删除失败: {}, 错误: {}", absolutePath, e.getMessage(), e);
-            throw new BusinessException("OSS中删除文件失败");
+            throw new OssException("OSS中删除文件失败");
         } finally {
             if (client != null) {
                 log.debug("[删除文件操作] 归还OSS客户端连接到连接池");
@@ -223,7 +223,7 @@ public class OssOssServiceImpl implements OssService {
             return true;
         } catch (Exception e) {
             log.error("[删除文件夹操作] 文件夹删除失败: {}, 错误: {}", path, e.getMessage(), e);
-            throw new BusinessException("文件夹删除失败");
+            throw new OssException("文件夹删除失败");
         } finally {
             if (client != null) {
                 log.debug("[删除文件夹操作] 归还OSS客户端连接到连接池");
@@ -268,7 +268,7 @@ public class OssOssServiceImpl implements OssService {
         } catch (Exception e) {
             log.error("[下载文件操作] 生成下载链接失败: {}, 错误: {}", absolutePath, e.getMessage(),
                     e);
-            throw new BusinessException("获取url路径失败");
+            throw new OssException("获取url路径失败");
         } finally {
             if (client != null) {
                 log.debug("[下载文件操作] 归还OSS客户端连接到连接池");
@@ -461,7 +461,7 @@ public class OssOssServiceImpl implements OssService {
         } catch (Exception e) {
             log.error("[移动文件操作] 移动文件时发生异常: {}", e.getMessage(), e);
             log.error("OSS 文件移动出现错误", e);
-            throw new BusinessException("文件移动出现错误");
+            throw new OssException("文件移动出现错误");
         } finally {
             if (client != null) {
                 log.debug("[移动文件操作] 归还OSS客户端连接到连接池");
@@ -481,7 +481,7 @@ public class OssOssServiceImpl implements OssService {
             log.info("小文件上传成功: key={}, size={}", file.getAbsolutePath(), file.getSize());
             return true;
         } catch (Exception e) {
-            throw new BusinessException("小文件上传失败: " + e.getMessage());
+            throw new OssException("小文件上传失败: " + e.getMessage());
         }
     }
 
@@ -492,7 +492,7 @@ public class OssOssServiceImpl implements OssService {
             log.info("大文件上传成功: key={}, size={}", file.getAbsolutePath(), file.getSize());
             return true;
         } catch (Exception e) {
-            throw new BusinessException("大文件上传失败: " + e.getMessage());
+            throw new OssException("大文件上传失败: " + e.getMessage());
         }
     }
 
