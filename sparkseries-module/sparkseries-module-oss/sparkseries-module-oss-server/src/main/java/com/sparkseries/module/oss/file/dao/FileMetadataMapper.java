@@ -72,14 +72,13 @@ public interface FileMetadataMapper {
     /**
      * 重命名
      *
-     * @param id           文件id
-     * @param filename     id+文件名
-     * @param originalName 文件名
+     * @param id           文件 id
+     * @param filename     文件名
      * @param storageType  存储类型
      * @return 更新的文件元数据数量
      */
     Integer updateFileName(@Param("id") Long id, @Param("fileName") String filename,
-                           @Param("originalName") String originalName, @Param("storageType") StorageTypeEnum storageType);
+                            @Param("storageType") StorageTypeEnum storageType);
 
     /**
      * 修改路径

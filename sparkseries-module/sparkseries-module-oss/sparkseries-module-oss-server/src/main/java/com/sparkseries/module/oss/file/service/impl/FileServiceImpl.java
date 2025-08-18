@@ -131,10 +131,6 @@ public class FileServiceImpl implements FileService {
 
         String path = file.getStoragePath();
 
-        if (path.startsWith(AVATAR_PATH_PREFIX)) {
-            throw new OssException("'avatar/' 文件目录属于系统文件你无权操作");
-        }
-
         String absolutePath = path + filename;
 
         boolean deleteFile = getCurrentStorageService().deleteFile(absolutePath, visibility, userId.toString());
@@ -168,13 +164,7 @@ public class FileServiceImpl implements FileService {
 
         StorageTypeEnum storageType = getCurrentStorageService().getStorageType();
 
-        path = FileUtils.normalizePath(path);
-
-        FileUtils.isValidPath(path);
-
-        if (path.startsWith(AVATAR_PATH_PREFIX)) {
-            throw new OssException("'avatar/' 文件目录属于系统文件你无权操作");
-        }
+        path = FileUtils.normalizeAndValidatePath(path);
 
         boolean deleteFolder = getCurrentStorageService().deleteFolder(path, visibility, userId.toString());
 
@@ -210,11 +200,9 @@ public class FileServiceImpl implements FileService {
             throw new OssException("文件不存在");
         }
 
-        String normalizedFilename = FileUtils.normalizeFileName(newName);
+        String normalizedFilename = FileUtils.normalizeAndValidateFileName(newName);
 
-        FileUtils.isValidFileName(normalizedFilename);
-
-        String filename = metadata.getFileName();
+        String oldFilename = metadata.getFileName();
 
         String path = metadata.getStoragePath();
 
@@ -224,13 +212,13 @@ public class FileServiceImpl implements FileService {
             throw new OssException("文件名已被使用");
         }
 
-        boolean rename = getCurrentStorageService().rename(id, filename, normalizedFilename, path, visibility, userId.toString());
+        boolean rename = getCurrentStorageService().rename(id, oldFilename, normalizedFilename, path, visibility, userId.toString());
 
         if (!rename) {
             throw new OssException("重命名失败");
         }
 
-        if (metadataMapper.updateFileName(id, id + normalizedFilename, normalizedFilename, storageType) <= 0) {
+        if (metadataMapper.updateFileName(id, normalizedFilename, storageType) <= 0) {
             throw new OssException("数据库文件重命名失败");
         }
 
