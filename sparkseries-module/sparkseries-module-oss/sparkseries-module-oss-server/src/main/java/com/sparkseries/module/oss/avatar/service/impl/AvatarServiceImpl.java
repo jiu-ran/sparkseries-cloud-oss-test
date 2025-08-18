@@ -1,30 +1,34 @@
 package com.sparkseries.module.oss.avatar.service.impl;
 
 
-import static com.sparkeries.constant.Constants.AVATAR_MAX_SIZE;
-import static com.sparkeries.constant.Constants.AVATAR_PATH_PREFIX;
-import static com.sparkeries.constant.Constants.IMAGE_MIME_PREFIX;
-import static com.sparkeries.constant.Constants.SUPPORTED_IMAGE_TYPES;
-
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
-import com.sparkseries.common.security.util.CurrentUser;
-import com.sparkseries.module.oss.common.exception.OssException;
-import com.sparkseries.module.oss.file.dto.MultipartFileDTO;
+import com.sparkeries.dto.AvatarDTO;
+import com.sparkeries.dto.FileStorageDTO;
 import com.sparkeries.enums.StorageTypeEnum;
-import com.sparkseries.module.oss.common.util.FileUtils;
+import com.sparkseries.common.security.util.CurrentUser;
 import com.sparkseries.common.util.entity.Result;
 import com.sparkseries.module.oss.avatar.dao.AvatarMapper;
-import com.sparkeries.dto.AvatarDTO;
 import com.sparkseries.module.oss.avatar.service.AvatarService;
-import com.sparkseries.module.oss.switching.DynamicStorageSwitchService;
 import com.sparkseries.module.oss.common.api.provider.service.OssService;
+import com.sparkseries.module.oss.common.exception.OssException;
+import com.sparkseries.module.oss.common.util.FileUtils;
+import com.sparkseries.module.oss.file.dto.MultipartFileDTO;
 import com.sparkseries.module.oss.provider.local.oss.LocalOssServiceImpl;
+import com.sparkseries.module.oss.switching.DynamicStorageSwitchService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.web.util.UriComponentsBuilder;
+
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+
+import static com.sparkeries.constant.Constants.*;
 
 /**
  * 头像服务实现
@@ -47,6 +51,13 @@ public class AvatarServiceImpl implements AvatarService {
         return provider.getCurrentStrategy();
     }
 
+    /**
+     * 上传用户头像
+     *
+     * @param avatar 头像信息
+     * @param userId 用户 ID
+     * @return 上传结果
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Result<String> uploadAvatar(MultipartFileDTO avatar, Long userId) {
@@ -55,32 +66,37 @@ public class AvatarServiceImpl implements AvatarService {
         validateAvatarFile(avatar);
 
         // 获取文件信息
-        String originalFilename = avatar.getFilename();
-        String suffix = FileUtils.getFileExtension(originalFilename);
+        String suffix = FileUtils.getFileExtension(avatar.getFilename());
 
         if (suffix.isEmpty()) {
-            log.warn("请上传带有文件扩展名的图片");
+            log.warn("请上传带有文件扩展名的图片 ");
             throw new OssException("请上传带有文件扩展名的图片");
         }
 
         // 构建存储路径
-        String absolutePath = buildAvatarAbsolutePath(userId, suffix);
-
-        avatar.setAbsolutePath(absolutePath);
+        String avatarPath = buildAvatarPath(userId, suffix);
 
         // 执行上传
-        boolean uploadSuccess = getCurrentStorageService().uploadAvatar(avatar);
+
+        boolean uploadSuccess = getCurrentStorageService().uploadAvatar(new FileStorageDTO(userId.toString(), avatar.getInputStream(), null, avatar.getSize(), avatarPath));
+
         if (!uploadSuccess) {
             log.warn("头像上传失败");
             throw new OssException("上传失败");
         }
 
         // 保存到数据库
-        saveAvatarRecord(avatar, userId, absolutePath);
+        saveAvatarRecord(avatar, userId, avatarPath);
 
         return Result.ok("上传成功");
     }
 
+    /**
+     * 修改用户头像
+     *
+     * @param avatar 头像信息
+     * @return 修改结果
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Result<?> updateAvatar(MultipartFileDTO avatar) {
@@ -89,8 +105,7 @@ public class AvatarServiceImpl implements AvatarService {
         validateAvatarFile(avatar);
 
         // 获取文件信息
-        String originalFilename = avatar.getFilename();
-        String suffix = FileUtils.getFileExtension(originalFilename);
+        String suffix = FileUtils.getFileExtension(avatar.getFilename());
 
         if (suffix.isEmpty()) {
             log.warn("请上传带有文件扩展名的图片");
@@ -100,42 +115,61 @@ public class AvatarServiceImpl implements AvatarService {
         Long userId = CurrentUser.getId();
 
         // 构建存储路径
-        String absolutePath = buildAvatarAbsolutePath(userId, suffix);
+        String avatarPath = buildAvatarPath(userId, suffix);
 
-        avatar.setAbsolutePath(absolutePath);
+        avatar.setAbsolutePath(avatarPath);
 
         // 执行上传
-        boolean uploadSuccess = getCurrentStorageService().uploadAvatar(avatar);
+        boolean uploadSuccess = getCurrentStorageService().uploadAvatar(new FileStorageDTO(userId.toString(), avatar.getInputStream(), null, avatar.getSize(), avatarPath));
         if (!uploadSuccess) {
             log.warn("头像修改失败");
             throw new OssException("上传失败");
         }
 
         // 更新数据库记录
-        updateAvatarRecord(avatar, userId, absolutePath);
+        updateAvatarRecord(avatar, userId, avatarPath);
 
         return Result.ok("上传成功");
     }
 
+    /**
+     * 获取用户头像
+     *
+     * @param userId 用户 ID
+     * @return 用户头像 URL
+     */
     @Override
     public Result<String> getUserAvatar(Long userId) {
 
         if (getCurrentStorageService() instanceof LocalOssServiceImpl) {
-            String avatarUrl = ServletUriComponentsBuilder.fromCurrentContextPath().path("/user/avatar/local/{userId}").buildAndExpand(userId).toUriString();
-            return Result.ok(avatarUrl);
+
+            try {
+                // 从请求上下文中获取 HttpServletRequest
+                ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+                if (attributes == null) {
+                    throw new OssException("无法获取当前请求上下文");
+                }
+                HttpServletRequest request = attributes.getRequest();
+
+                // 动态构建URL
+                String host = InetAddress.getLocalHost().getHostAddress();
+                String avatarUrl = UriComponentsBuilder.newInstance().scheme(request.getScheme()).host(host).port(request.getServerPort()).path("/user/avatar/local/{userId}").buildAndExpand(userId).toUriString();
+                return Result.ok(avatarUrl);
+            } catch (UnknownHostException e) {
+                log.error("获取服务器主机地址失败", e);
+                throw new OssException("无法生成头像URL，获取主机地址失败");
+            }
         }
 
-        String absolutePath = avatarMapper.getAvatarAbsolutePathByUserId(userId);
+        String absolutePath = avatarMapper.getAvatarPathByUserId(userId);
         String previewUrl = getCurrentStorageService().previewFile(absolutePath);
         return Result.ok(previewUrl);
-
-
     }
 
     @Override
     public ResponseEntity<?> previewLocalAvatar(Long userId) {
 
-        String absolutePath = avatarMapper.getAvatarAbsolutePathByUserId(userId);
+        String absolutePath = avatarMapper.getAvatarPathByUserId(userId);
         return getCurrentStorageService().previewLocalAvatar(absolutePath);
 
     }
@@ -186,7 +220,7 @@ public class AvatarServiceImpl implements AvatarService {
      * @param suffix 文件后缀
      * @return 存储路径
      */
-    private String buildAvatarAbsolutePath(Long userId, String suffix) {
+    private String buildAvatarPath(Long userId, String suffix) {
         return AVATAR_PATH_PREFIX + userId + "." + suffix;
     }
 

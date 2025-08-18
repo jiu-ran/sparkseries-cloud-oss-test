@@ -31,13 +31,13 @@ public class AvatarController {
     /**
      * 上传用户头像
      *
-     * @param avatar 头像图片
+     * @param avatar 用户头像图片
      * @param userId 用户ID
      * @return 上传结果
      */
     @PostMapping()
     @Operation(summary = "上传用户头像")
-    public Result<String> uploadAvatar(@RequestParam("file") @NotNull(message = "请指定上传头像") MultipartFile avatar,
+    public Result<String> uploadAvatar(@RequestParam("avatar") @NotNull(message = "请指定上传头像") MultipartFile avatar,
                                        @RequestParam("userId") @NotNull(message = "请指定用户id") Long userId) {
         try {
             Tika tika = new Tika();
@@ -50,9 +50,9 @@ public class AvatarController {
     }
 
     /**
-     * 修改用户头像
+     * 更新用户头像
      *
-     * @param avatar 头像文件
+     * @param avatar 用户头像图片
      * @return 修改结果
      */
     @PutMapping()
@@ -71,8 +71,8 @@ public class AvatarController {
     /**
      * 获取用户头像
      *
-     * @param userId 用户ID
-     * @return 头像URL
+     * @param userId 用户 ID
+     * @return 头像 url
      */
     @GetMapping("/{userId}")
     @Operation(summary = "获取用户头像")
@@ -83,7 +83,7 @@ public class AvatarController {
     /**
      * 预览本地存储头像
      *
-     * @param userId 用户ID
+     * @param userId 用户 ID
      * @return 文件预览响应
      */
     @GetMapping("local/{userId}")

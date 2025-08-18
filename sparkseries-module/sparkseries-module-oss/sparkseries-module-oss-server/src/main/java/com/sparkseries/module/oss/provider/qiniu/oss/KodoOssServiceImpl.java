@@ -9,7 +9,9 @@ import com.qiniu.storage.UploadManager;
 import com.qiniu.storage.model.FileInfo;
 import com.qiniu.storage.model.FileListing;
 import com.qiniu.util.Auth;
+import com.sparkeries.dto.FileStorageDTO;
 import com.sparkeries.enums.StorageTypeEnum;
+import com.sparkeries.enums.VisibilityEnum;
 import com.sparkseries.module.oss.common.api.provider.service.OssService;
 import com.sparkseries.module.oss.common.exception.OssException;
 import com.sparkseries.module.oss.file.dao.FileMetadataMapper;
@@ -94,7 +96,7 @@ public class KodoOssServiceImpl implements OssService {
      * @return 上传是否成功
      */
     @Override
-    public boolean upload(MultipartFileDTO file) {
+    public boolean uploadFile(FileStorageDTO file, VisibilityEnum visibility) {
         String originalFilename = file.getFilename();
         String absolutePath = file.getAbsolutePath();
 
@@ -131,13 +133,13 @@ public class KodoOssServiceImpl implements OssService {
      * 上传小文件（小于分片阈值）
      *
      * @param uploadManager 上传管理器
-     * @param file          文件信息
-     * @param uploadToken   上传令牌
-     * @param absolutePath  文件绝对路径
+     * @param file 文件信息
+     * @param uploadToken 上传令牌
+     * @param absolutePath 文件绝对路径
      * @return 上传是否成功
      */
     private boolean uploadSmallFile(UploadManager uploadManager, MultipartFileDTO file,
-            String uploadToken, String absolutePath) {
+                                    String uploadToken, String absolutePath) {
         try {
             long fileSize = file.getSize();
             log.info("使用直接上传: 文件大小={} KB, 文件路径={}", fileSize / 1024, absolutePath);
@@ -160,13 +162,13 @@ public class KodoOssServiceImpl implements OssService {
      * 上传大文件（大于分片阈值）
      *
      * @param uploadManager 上传管理器
-     * @param file          文件信息
-     * @param uploadToken   上传令牌
-     * @param absolutePath  文件绝对路径
+     * @param file 文件信息
+     * @param uploadToken 上传令牌
+     * @param absolutePath 文件绝对路径
      * @return 上传是否成功
      */
     private boolean uploadLargeFile(UploadManager uploadManager, MultipartFileDTO file,
-            String uploadToken, String absolutePath) {
+                                    String uploadToken, String absolutePath) {
         File tempFile = null;
         try {
             long fileSize = file.getSize();
@@ -176,7 +178,7 @@ public class KodoOssServiceImpl implements OssService {
             // 将 MultipartFile 转为临时 File
             tempFile = File.createTempFile("qiniu-", ".tmp");
             try (var inputStream = file.getInputStream();
-                    var outputStream = Files.newOutputStream(tempFile.toPath())) {
+                 var outputStream = Files.newOutputStream(tempFile.toPath())) {
                 inputStream.transferTo(outputStream);
             }
 
@@ -205,13 +207,13 @@ public class KodoOssServiceImpl implements OssService {
      * @return 上传是否成功
      */
     @Override
-    public boolean uploadAvatar(MultipartFileDTO avatar) {
+    public boolean uploadAvatar(FileStorageDTO avatar) {
 
         log.info("开始头像上传到Kodo: 文件名='{}', 大小={} bytes, 目标路径='{}'",
                 avatar.getFilename(), avatar.getSize(), avatar.getAbsolutePath());
 
         // 复用upload方法的完整逻辑（包括分片上传策略、元数据设置等）
-        boolean result = upload(avatar);
+        boolean result = uploadFile(avatar);
 
         if (result) {
             log.info("头像上传到Kodo成功: 文件名='{}', 路径='{}'", avatar.getFilename(),
@@ -224,10 +226,12 @@ public class KodoOssServiceImpl implements OssService {
      * 创建文件夹
      *
      * @param path 文件夹路径
+     * @param visibility 文件夹可见性
+     * @param userId 用户 ID
      * @return 创建是否成功
      */
     @Override
-    public boolean createFolder(String path) {
+    public boolean createFolder(String path, VisibilityEnum visibility, String userId) {
         log.info("[创建文件夹操作] 开始创建文件夹: {}", path);
         Auth client = null;
         try {
@@ -312,10 +316,12 @@ public class KodoOssServiceImpl implements OssService {
      * 删除文件
      *
      * @param absolutePath 文件绝对路径
+     * @param visibility
+     * @param userId
      * @return 删除是否成功
      */
     @Override
-    public boolean deleteFile(String absolutePath) {
+    public boolean deleteFile(String absolutePath, VisibilityEnum visibility, String userId) {
         log.info("[删除文件操作] 开始删除文件: {}", absolutePath);
         Auth client = null;
         try {
@@ -347,10 +353,12 @@ public class KodoOssServiceImpl implements OssService {
      * 删除文件夹及其所有内容
      *
      * @param path 文件夹路径
+     * @param visibility
+     * @param userId
      * @return 删除是否成功
      */
     @Override
-    public boolean deleteFolder(String path) {
+    public boolean deleteFolder(String path, VisibilityEnum visibility, String userId) {
         log.info("[删除文件夹操作] 开始删除文件夹: {}", path);
         Auth client = null;
         try {
@@ -441,12 +449,13 @@ public class KodoOssServiceImpl implements OssService {
     /**
      * 生成文件下载链接
      *
-     * @param absolutePath     文件绝对路径
+     * @param absolutePath 文件绝对路径
      * @param downloadFileName 下载文件名
+     * @param visibility
      * @return 下载链接
      */
     @Override
-    public String downLoad(String absolutePath, String downloadFileName) {
+    public String downLoad(String absolutePath, String downloadFileName, VisibilityEnum visibility) {
         log.info("[下载文件操作] 开始生成下载链接: {}, 下载文件名: {}", absolutePath,
                 downloadFileName);
         Auth client = null;
@@ -488,21 +497,22 @@ public class KodoOssServiceImpl implements OssService {
      * 下载本地文件（此方法已废弃，不实现）
      *
      * @param metadata 文件元数据
+     * @param visibilityEnum
      * @return 始终返回null
      */
     @Override
     @Deprecated
-    public ResponseEntity<?> downLocalFile(FileMetadataEntity metadata) {
+    public ResponseEntity<?> downLocalFile(FileMetadataEntity metadata, VisibilityEnum visibilityEnum) {
         return null;
     }
 
     /**
      * 重命名文件
      *
-     * @param id          文件ID
-     * @param filename    原文件名
+     * @param id 文件ID
+     * @param filename 原文件名
      * @param newFilename 新文件名
-     * @param path        文件路径
+     * @param path 文件路径
      * @return 重命名是否成功
      */
     @Override
@@ -554,8 +564,8 @@ public class KodoOssServiceImpl implements OssService {
     @Override
     public FilesAndFoldersVO listFiles(String path) {
         log.info("[列出文件操作] 开始列出路径下的文件和文件夹: {}", path);
-        List<FileInfoVO> files = fileMetadataMapper.listFileByPath(path,KODO);
-        Set<FolderInfoVO> folders = fileMetadataMapper.listFolderByPath(path,KODO).stream()
+        List<FileInfoVO> files = fileMetadataMapper.listFileByPath(path, KODO);
+        Set<FolderInfoVO> folders = fileMetadataMapper.listFolderByPath(path, KODO).stream()
                 .map(s -> new FolderInfoVO(s.replace(path, "").split("/")[0], path)).collect(Collectors.toSet());
         fileMetadataMapper.listFolderNameByPath(path, COS).stream().map(s -> new FolderInfoVO(s, path)).forEach(folders::add);
         return new FilesAndFoldersVO(files, folders);
@@ -620,11 +630,13 @@ public class KodoOssServiceImpl implements OssService {
      * 预览本地文件（此方法已废弃，不实现）
      *
      * @param metadata 文件元数据
+     * @param visibility
+     * @param userId
      * @return 始终返回null
      */
     @Override
     @Deprecated
-    public ResponseEntity<?> previewLocalFile(FileMetadataEntity metadata) {
+    public ResponseEntity<?> previewLocalFile(FileMetadataEntity metadata, VisibilityEnum visibility, String userId) {
         return null;
     }
 

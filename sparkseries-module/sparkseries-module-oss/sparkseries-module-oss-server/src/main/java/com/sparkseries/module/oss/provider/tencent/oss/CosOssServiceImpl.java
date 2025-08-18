@@ -5,7 +5,9 @@ import com.qcloud.cos.event.ProgressEventType;
 import com.qcloud.cos.model.*;
 import com.qcloud.cos.transfer.TransferManager;
 import com.qcloud.cos.transfer.Upload;
+import com.sparkeries.dto.FileStorageDTO;
 import com.sparkeries.enums.StorageTypeEnum;
+import com.sparkeries.enums.VisibilityEnum;
 import com.sparkseries.module.oss.common.api.provider.service.OssService;
 import com.sparkseries.module.oss.common.exception.OssException;
 import com.sparkseries.module.oss.file.dao.FileMetadataMapper;
@@ -65,7 +67,7 @@ public class CosOssServiceImpl implements OssService {
      * @return 上传是否成功
      */
     @Override
-    public boolean upload(MultipartFileDTO file) {
+    public boolean uploadFile(FileStorageDTO file, VisibilityEnum visibility) {
         COSClient client = null;
         ExecutorService threadPool = null;
         TransferManager transferManager = null;
@@ -235,7 +237,7 @@ public class CosOssServiceImpl implements OssService {
         TimeUnit unit = TimeUnit.SECONDS;
         BlockingQueue<Runnable> workQueue = new LinkedBlockingQueue<>(100);
         ThreadFactory threadFactory = r -> {
-            Thread t = new Thread(r, "cos-upload-thread");
+            Thread t = new Thread(r, "cos-uploadFile-thread");
             t.setDaemon(true);
             return t;
         };
@@ -322,14 +324,14 @@ public class CosOssServiceImpl implements OssService {
      * @return 上传是否成功
      */
     @Override
-    public boolean uploadAvatar(MultipartFileDTO avatar) {
+    public boolean uploadAvatar(FileStorageDTO avatar) {
         log.info("[头像上传操作] 开始上传头像到COS");
         log.info("开始头像上传到COS: 文件名='{}', 大小={} bytes, 目标路径='{}'",
                 avatar.getFilename(), avatar.getSize(), avatar.getAbsolutePath());
 
         try {
             // 复用upload方法的完整逻辑（包括分片上传策略、元数据设置等）
-            boolean result = upload(avatar);
+            boolean result = uploadFile(avatar);
 
             if (result) {
                 log.info("头像上传到COS成功: 文件名='{}', 路径='{}'", avatar.getFilename(),
@@ -350,10 +352,11 @@ public class CosOssServiceImpl implements OssService {
      * 创建文件夹
      *
      * @param path 文件夹路径
+     * @param visibility
      * @return 创建是否成功
      */
     @Override
-    public boolean createFolder(String path) {
+    public boolean createFolder(String path, VisibilityEnum visibility, String userId) {
         COSClient client = null;
         long startTime = System.currentTimeMillis();
         log.info("COS 开始创建文件夹 - 路径: {}", path);
@@ -403,10 +406,12 @@ public class CosOssServiceImpl implements OssService {
      * 删除文件
      *
      * @param absolutePath 文件绝对路径
+     * @param visibility
+     * @param userId
      * @return 删除是否成功
      */
     @Override
-    public boolean deleteFile(String absolutePath) {
+    public boolean deleteFile(String absolutePath, VisibilityEnum visibility, String userId) {
         COSClient client = null;
         long startTime = System.currentTimeMillis();
         log.info("COS 开始删除文件 - 路径: {}", absolutePath);
@@ -450,10 +455,12 @@ public class CosOssServiceImpl implements OssService {
      * 删除文件夹及其内容
      *
      * @param path 文件夹路径
+     * @param visibility
+     * @param userId
      * @return 删除是否成功
      */
     @Override
-    public boolean deleteFolder(String path) {
+    public boolean deleteFolder(String path, VisibilityEnum visibility, String userId) {
         COSClient client = null;
         long startTime = System.currentTimeMillis();
         log.info("COS 开始删除文件夹 - 路径: {}", path);
@@ -520,10 +527,11 @@ public class CosOssServiceImpl implements OssService {
      *
      * @param absolutePath 文件绝对路径
      * @param downloadFileName 下载文件名
+     * @param visibility
      * @return 下载链接
      */
     @Override
-    public String downLoad(String absolutePath, String downloadFileName) {
+    public String downLoad(String absolutePath, String downloadFileName, VisibilityEnum visibility) {
         COSClient client = null;
         long startTime = System.currentTimeMillis();
         log.info("COS 开始生成下载链接 - 文件路径: {}, 下载文件名: {}", absolutePath,
@@ -579,12 +587,10 @@ public class CosOssServiceImpl implements OssService {
 
     /**
      * 下载本地文件
-     *
-     * @param metadata 文件元数据
-     * @return 响应实体
      */
     @Override
-    public ResponseEntity<?> downLocalFile(FileMetadataEntity metadata) {
+    @Deprecated
+    public ResponseEntity<?> downLocalFile(FileMetadataEntity metadata, VisibilityEnum visibilityEnum) {
         return null;
     }
 
@@ -626,7 +632,7 @@ public class CosOssServiceImpl implements OssService {
 
             // 步骤 2: 删除原文件
             log.debug("开始删除原文件");
-            boolean deleteFile = deleteFile(sourceAbsolutePath);
+            boolean deleteFile = deleteFile(sourceAbsolutePath, , );
 
             if (!deleteFile) {
                 throw new OssException("文件重命名失败: 原文件删除失败");
@@ -736,11 +742,13 @@ public class CosOssServiceImpl implements OssService {
      * 预览本地文件（此方法在COS存储服务中不实现，始终返回null）
      *
      * @param metadata 文件元数据实体
+     * @param visibility
+     * @param userId
      * @return 始终返回null
      */
     @Override
     @Deprecated
-    public ResponseEntity<?> previewLocalFile(FileMetadataEntity metadata) {
+    public ResponseEntity<?> previewLocalFile(FileMetadataEntity metadata, VisibilityEnum visibility, String userId) {
         return null;
     }
 
@@ -788,7 +796,7 @@ public class CosOssServiceImpl implements OssService {
 
             // 步骤 2: 删除源文件
             log.debug("开始删除源文件");
-            deleteFile(sourceAbsolutePath);
+            deleteFile(sourceAbsolutePath, , );
             log.info("成功删除源 COS 文件: [{}]", sourceAbsolutePath);
 
             long duration = System.currentTimeMillis() - startTime;

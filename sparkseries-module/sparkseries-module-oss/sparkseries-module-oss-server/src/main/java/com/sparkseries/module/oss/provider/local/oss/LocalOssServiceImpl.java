@@ -1,10 +1,11 @@
 package com.sparkseries.module.oss.provider.local.oss;
 
+import com.sparkeries.dto.FileStorageDTO;
 import com.sparkeries.enums.StorageTypeEnum;
+import com.sparkeries.enums.VisibilityEnum;
 import com.sparkseries.module.oss.common.api.provider.service.OssService;
 import com.sparkseries.module.oss.common.exception.OssException;
 import com.sparkseries.module.oss.file.dao.FileMetadataMapper;
-import com.sparkseries.module.oss.file.dto.MultipartFileDTO;
 import com.sparkseries.module.oss.file.entity.FileMetadataEntity;
 import com.sparkseries.module.oss.file.vo.FileInfoVO;
 import com.sparkseries.module.oss.file.vo.FilesAndFoldersVO;
@@ -21,6 +22,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.*;
 import java.util.List;
 import java.util.Set;
@@ -38,76 +40,66 @@ public class LocalOssServiceImpl implements OssService {
 
 
     /**
-     * 本地文件存储的基础路径
+     * 头像路径
      */
-    public final String basePath;
+    public final String avatarPath;
+    /**
+     * 公共文件路径
+     */
+    public final String publicPath;
+    /**
+     * 用户文件路径
+     */
+    public final String userPath;
+
     private final FileMetadataMapper fileMetadataMapper;
 
-    /**
-     * 构造函数，注入本地文件存储的基础路径
-     *
-     * @param basePath 本地文件存储的基础路径，从配置文件中获取
-     */
-    public LocalOssServiceImpl(@Value("${Local.basePath}") String basePath, FileMetadataMapper fileMetadataMapper) {
+    public LocalOssServiceImpl(@Value("${Local.avatarPath}") String avatarPath,
+                               @Value("${Local.publicPath}") String publicPath,
+                               @Value("${Local.userPath}") String userPath,
+                               FileMetadataMapper fileMetadataMapper) {
 
         log.info("[初始化本地存储服务] 开始初始化本地文件存储服务");
-        this.basePath = basePath;
+        this.avatarPath = avatarPath;
+        this.publicPath = publicPath;
+        this.userPath = userPath;
         this.fileMetadataMapper = fileMetadataMapper;
-        log.info("本地存储服务初始化 - 基础路径: {}, 大文件阈值: {} MB",
-                basePath, LOCAL_SIZE_THRESHOLD / (1024 * 1024));
-        log.info("[初始化本地存储服务] 本地文件存储服务初始化完成，基础路径: {}", basePath);
+        log.info("本地存储服务初始化成功");
     }
 
     /**
-     * 上传文件到本地存储
+     * 上传文件
      *
      * @param file 要上传的文件信息
+     * @param visibility 文件的能见度
      * @return 上传是否成功
      */
     @Override
-    public boolean upload(MultipartFileDTO file) {
+    public boolean uploadFile(FileStorageDTO file, VisibilityEnum visibility) {
         log.info("[上传文件操作] 开始上传文件到本地存储: {}", file.getAbsolutePath());
-        String originalFileName = file.getFilename();
+
         String absolutePath = file.getAbsolutePath();
-        String fullPath = basePath + absolutePath;
+
+        Path targetPath = getTargetPath(absolutePath, visibility, file.getUserId());
+
+        file.setPath(targetPath);
+
         long startTime = System.currentTimeMillis();
 
-        log.info("本地存储开始上传文件 - 文件名: {}, 大小: {} bytes ({} MB), 目标路径: {}",
-                originalFileName, file.getSize(), file.getSize() / (1024 * 1024), fullPath);
+        log.info("本地存储开始上传文件 - 文件名: {}, 大小: {}, 目标路径: {}", file.getFilename(), file.getSize(), targetPath);
 
         try {
-            // 验证文件大小（本地存储通常有磁盘空间限制）
-            log.debug("开始验证文件大小和磁盘空间");
-            validateFileSize(file.getSize());
-
-            Path targetPath = Paths.get(fullPath);
-            // 确保目标目录存在
-            log.debug("确保目标目录存在: {}", targetPath.getParent());
-            createDirectoriesIfNotExists(targetPath.getParent());
-
-            boolean result;
-            // 根据文件大小选择上传策略
-            if (file.getSize() > LOCAL_SIZE_THRESHOLD) {
-                log.debug("文件大小超过阈值，使用大文件分块上传策略");
-                // 大文件分块上传
-                result = uploadLargeFile(file, targetPath);
-            } else {
-                log.debug("文件大小未超过阈值，使用小文件直接上传策略");
-                // 小文件直接上传
-                result = uploadSmallFile(file, targetPath);
-            }
+            boolean result = upload(file);
 
             long duration = System.currentTimeMillis() - startTime;
-            log.info("本地存储文件上传完成 - 文件名: {}, 大小: {} MB, 耗时: {} ms, 结果: {}",
-                    originalFileName, file.getSize() / (1024 * 1024), duration, result ? "成功" : "失败");
+            log.info("本地存储文件上传完成 - 文件名: {}, 耗时: {} ms, 结果: {}", file.getFilename(), duration, result ? "成功" : "失败");
             return result;
 
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
             log.error("[上传文件操作] 文件上传失败: {}", e.getMessage(), e);
-            log.error("本地存储文件上传失败 - 文件名: {}, 路径: {}, 耗时: {} ms, 错误信息: {}",
-                    originalFileName, fullPath, duration, e.getMessage(), e);
-            throw new OssException("本地保存失败: " + e.getMessage());
+            log.error("本地存储文件上传失败 - 文件名: {}, 路径: {}, 耗时: {} ms, 错误信息: {}", file.getFilename(), targetPath, duration, e.getMessage(), e);
+            throw new OssException("文件本地存储失败: " + e.getMessage());
         }
     }
 
@@ -118,14 +110,16 @@ public class LocalOssServiceImpl implements OssService {
      * @return 上传是否成功
      */
     @Override
-    public boolean uploadAvatar(MultipartFileDTO avatar) {
+    public boolean uploadAvatar(FileStorageDTO avatar) {
+
         log.info("[上传头像操作] 开始上传头像到本地存储: {}", avatar.getAbsolutePath());
 
-        log.info("开始头像上传: 文件名='{}', 大小={} bytes, 目标路径='{}'",
-                avatar.getFilename(), avatar.getSize(), avatar.getAbsolutePath());
+        log.info("开始头像上传: 文件名='{}', 大小={} bytes, 目标路径='{}'", avatar.getFilename(), avatar.getSize(), avatar.getAbsolutePath());
 
         try {
-            // 复用upload方法的完整逻辑（包括文件大小验证、分片上传、原子性操作等）
+            String absolutePath = avatar.getAbsolutePath();
+            Path targetPath = Paths.get(avatarPath, absolutePath);
+            avatar.setPath(targetPath);
             boolean result = upload(avatar);
 
             if (result) {
@@ -134,46 +128,45 @@ public class LocalOssServiceImpl implements OssService {
             } else {
                 log.error("[上传头像操作] 头像上传失败: {}", avatar.getAbsolutePath());
             }
-
             return result;
         } catch (Exception e) {
             log.error("[上传头像操作] 头像上传异常: {}", e.getMessage(), e);
-            throw e;
+            throw new OssException("头像上传失败: " + e.getMessage());
         }
     }
 
     /**
      * 创建文件夹
      *
-     * @param dir 文件夹路径
+     * @param path 文件夹路径
+     * @param visibility 文件夹能见度
+     * @param userId 用户 ID
      * @return 创建是否成功
      */
     @Override
-    public boolean createFolder(String dir) {
-        log.info("[创建文件夹操作] 开始创建文件夹: {}", dir);
-        dir = basePath + dir;
-        Path path = Paths.get(dir);
-        long startTime = System.currentTimeMillis();
+    public boolean createFolder(String path, VisibilityEnum visibility, String userId) {
+        log.info("[创建文件夹操作] 开始创建文件夹: {}", path);
+        Path targetPath = getTargetPath(path, visibility, userId);
+
         log.info("本地存储开始创建目录 - 路径: {}", path);
 
         try {
             log.debug("检查目录是否已存在");
-            if (Files.exists(path)) {
-                log.info("目录已存在，无需创建: {}", path.toAbsolutePath());
+            if (Files.exists(targetPath)) {
+                log.info("目录已存在，无需创建: {}", targetPath);
                 return true;
             }
 
             log.debug("开始创建目录（包含父目录）");
-            Files.createDirectories(path);
+            Files.createDirectories(targetPath);
 
-            long duration = System.currentTimeMillis() - startTime;
-            log.info("本地存储目录创建成功 - 路径: {}, 耗时: {} ms", path.toAbsolutePath(), duration);
+
+            log.info("本地存储目录创建成功 - 路径: {},", targetPath);
             return true;
         } catch (IOException e) {
-            long duration = System.currentTimeMillis() - startTime;
+
             log.error("[创建文件夹操作] 创建文件夹失败: {}", e.getMessage(), e);
-            log.error("本地存储目录创建失败 - 路径: {}, 耗时: {} ms, 错误信息: {}",
-                    path, duration, e.getMessage(), e);
+            log.error("本地存储目录创建失败 - 路径: {}, 错误信息: {}", path, e.getMessage(), e);
             throw new OssException("创建目录失败: " + e.getMessage());
         }
     }
@@ -182,48 +175,39 @@ public class LocalOssServiceImpl implements OssService {
      * 删除文件
      *
      * @param absolutePath 文件绝对路径
+     * @param visibility 能见度
+     * @param userId 用户 ID
      * @return 删除是否成功
      */
     @Override
-    public boolean deleteFile(String absolutePath) {
+    public boolean deleteFile(String absolutePath, VisibilityEnum visibility, String userId) {
         log.info("[删除文件操作] 开始删除文件: {}", absolutePath);
-        absolutePath = basePath + absolutePath;
-        long startTime = System.currentTimeMillis();
-        log.info("本地存储开始删除文件 - 路径: {}", absolutePath);
+        Path targetPath = getTargetPath(absolutePath, visibility, userId);
+
+        log.info("本地存储开始删除文件 - 路径: {}", targetPath);
 
         try {
-            Path path = Paths.get(absolutePath);
             log.debug("检查文件是否存在");
-            boolean exists = Files.exists(path);
+            boolean exists = Files.exists(targetPath);
             if (!exists) {
-                log.warn("文件不存在，无法删除: {}", absolutePath);
+                log.warn("文件不存在，无法删除: {}", targetPath);
                 throw new OssException("该文件不存在");
             }
 
-            // 获取文件大小用于日志记录
-            long fileSize = 0;
-            try {
-                fileSize = Files.size(path);
-            } catch (IOException e) {
-                log.debug("无法获取文件大小: {}", e.getMessage());
-            }
-
             log.debug("开始删除文件");
-            boolean result = Files.deleteIfExists(path);
+            boolean result = Files.deleteIfExists(targetPath);
             if (!result) {
-                log.error("文件删除操作返回false: {}", absolutePath);
+                log.error("文件删除操作返回false: {}", targetPath);
                 throw new OssException("文件删除失败");
             }
 
-            long duration = System.currentTimeMillis() - startTime;
-            log.info("本地存储文件删除成功 - 路径: {}, 大小: {} bytes, 耗时: {} ms",
-                    absolutePath, fileSize, duration);
+
+            log.info("本地存储文件删除成功 - 路径: {}", targetPath);
             return true;
         } catch (IOException e) {
-            long duration = System.currentTimeMillis() - startTime;
+
             log.error("[删除文件操作] 删除文件失败: {}", e.getMessage(), e);
-            log.error("本地存储文件删除失败 - 路径: {}, 耗时: {} ms, 错误信息: {}",
-                    absolutePath, duration, e.getMessage(), e);
+            log.error("本地存储文件删除失败 - 路径: {}, 错误信息: {}", absolutePath, e.getMessage(), e);
             throw new OssException("文件删除失败: " + e.getMessage());
         }
     }
@@ -231,22 +215,23 @@ public class LocalOssServiceImpl implements OssService {
     /**
      * 删除文件夹及其所有内容
      *
-     * @param dir 文件夹路径
+     * @param path 文件夹路径
+     * @param visibility 文件夹能见度
+     * @param userId 用户 ID
      * @return 删除是否成功
      */
     @Override
-    public boolean deleteFolder(String dir) {
-        log.info("[删除文件夹操作] 开始删除文件夹: {}", dir);
-        dir = basePath + dir;
-        long startTime = System.currentTimeMillis();
-        log.info("本地存储开始删除文件夹 - 路径: {}", dir);
+    public boolean deleteFolder(String path, VisibilityEnum visibility, String userId) {
+        log.info("[删除文件夹操作] 开始删除文件夹: {}", path);
+        Path targetPath = getTargetPath(path, visibility, userId);
+        log.info("本地存储开始删除文件夹 - 路径: {}", targetPath);
 
         try {
-            Path folder = Paths.get(dir);
+
             log.debug("检查文件夹是否存在");
-            boolean exists = Files.exists(folder);
+            boolean exists = Files.exists(targetPath);
             if (!exists) {
-                log.warn("文件夹不存在，无法删除: {}", dir);
+                log.warn("文件夹不存在，无法删除: {}", targetPath);
                 throw new OssException("该文件夹不存在");
             }
 
@@ -255,54 +240,46 @@ public class LocalOssServiceImpl implements OssService {
             final long[] totalSize = {0};
 
             log.debug("开始遍历并删除文件夹内容");
-            Files.walk(folder)
+            Files.walk(targetPath)
                     // sorted(Comparator.reverseOrder()) 确保先处理子文件/子目录，再处理父目录
-                    .sorted(java.util.Comparator.reverseOrder())
-                    .forEach(path -> {
+                    .sorted(java.util.Comparator.reverseOrder()).forEach(p -> {
                         try {
                             // 记录文件大小（如果是文件）
-                            if (Files.isRegularFile(path)) {
+                            if (Files.isRegularFile(p)) {
                                 try {
-                                    totalSize[0] += Files.size(path);
+                                    totalSize[0] += Files.size(p);
                                 } catch (IOException e) {
                                     log.debug("无法获取文件大小: {}", path);
                                 }
                             }
 
-                            Files.delete(path); // 删除文件或空目录
+                            Files.delete(p); // 删除文件或空目录
                             deletedCount[0]++;
-                            log.debug("成功删除路径: {}", path);
+                            log.debug("成功删除路径: {}", p);
                         } catch (IOException e) {
                             log.error("删除路径失败: {}, 错误信息: {}", path, e.getMessage(), e);
                             // 在 forEach 中抛出异常会中断流，可以考虑在此处记录错误并继续，
                             // 或者使用 AtomicBoolean 标记失败状态
-                            throw new RuntimeException("删除文件失败: " + path,
-                                    e); // Rethrow as RuntimeException to break walk
+                            throw new RuntimeException("删除文件失败: " + path, e); // Rethrow as RuntimeException to break walk
                         }
                     });
 
-            long duration = System.currentTimeMillis() - startTime;
-            log.info("本地存储文件夹删除成功 - 路径: {}, 删除项目数: {}, 总大小: {} bytes, 耗时: {} ms",
-                    dir, deletedCount[0], totalSize[0], duration);
+
+            log.info("本地存储文件夹删除成功 - 路径: {}, 删除项目数: {}, 总大小: {} bytes", targetPath, deletedCount[0], totalSize[0]);
             return true;
         } catch (IOException e) {
-            long duration = System.currentTimeMillis() - startTime;
             log.error("[删除文件夹操作] 删除文件夹失败: {}", e.getMessage(), e);
-            log.error("本地存储文件夹删除失败 - 路径: {}, 耗时: {} ms, 错误信息: {}",
-                    dir, duration, e.getMessage(), e);
+            log.error("本地存储文件夹删除失败 - 路径: {}, 错误信息: {}", targetPath, e.getMessage(), e);
             throw new OssException("文件夹删除失败: " + e.getMessage());
         }
     }
 
     /**
-     * 生成文件下载链接（本地存储不支持直接下载链接）
-     *
-     * @param absolutePath     文件绝对路径
-     * @param downloadFileName 下载文件名
-     * @return 始终返回空字符串
+     * 生成文件下载链接
      */
     @Override
-    public String downLoad(String absolutePath, String downloadFileName) {
+    @Deprecated
+    public String downLoad(String absolutePath, String downloadFileName, VisibilityEnum visibility) {
         return "";
     }
 
@@ -310,11 +287,12 @@ public class LocalOssServiceImpl implements OssService {
      * 下载本地文件
      *
      * @param fileMetadataEntity 文件元数据
+     * @param visibility 文件能见度
      * @return 文件响应实体
      * @throws RuntimeException 如果文件处理或编码发生错误
      */
     @Override
-    public ResponseEntity<?> downLocalFile(FileMetadataEntity fileMetadataEntity) {
+    public ResponseEntity<?> downLocalFile(FileMetadataEntity fileMetadataEntity, VisibilityEnum visibility, String userId) {
         log.info("[下载文件操作] 开始下载本地文件: {}", fileMetadataEntity.getFileName());
 
         String path = fileMetadataEntity.getStoragePath();
@@ -323,17 +301,16 @@ public class LocalOssServiceImpl implements OssService {
 
         String filename = fileMetadataEntity.getFileName();
 
-        path = basePath + path;
+        String absolutePath = path + filename;
+
+        Path targetPath = getTargetPath(absolutePath, visibility, userId);
 
         try {
             URLCodec codec = new URLCodec();
-            Path filePath = Paths.get(path, filename);
-            Resource resource = new UrlResource(filePath.toUri());
-            ResponseEntity<Resource> body = ResponseEntity.ok()
-                    .contentType(MediaType.parseMediaType(Files.probeContentType(filePath)))
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\""
-                            + codec.encode(originalName) + "\"")
-                    .body(resource);
+            Resource resource = new UrlResource(targetPath.toUri());
+            ResponseEntity<Resource> body = ResponseEntity.ok().contentType(
+                            MediaType.parseMediaType(Files.probeContentType(targetPath))).
+                    header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + codec.encode(originalName) + "\"").body(resource);
             log.info("[下载文件操作] 文件下载成功: {}", filename);
             log.info("文件下载url获取成功");
             return body;
@@ -346,23 +323,29 @@ public class LocalOssServiceImpl implements OssService {
     /**
      * 重命名文件
      *
-     * @param id          文件ID
-     * @param filename    原文件名
+     * @param id 文件ID
+     * @param filename 原文件名
      * @param newFilename 新文件名
-     * @param path        文件路径
+     * @param path 文件路径
+     * @param visibility 能见度
+     * @param userId 用户 ID
      * @return 重命名是否成功
      */
     @Override
-    public boolean rename(Long id, String filename, String newFilename, String path) {
+    public boolean rename(Long id, String filename, String newFilename, String path, VisibilityEnum visibility, String userId) {
         log.info("[重命名文件操作] 开始重命名文件: {} -> {}", filename, newFilename);
-        path = basePath + path + filename;
+        String source = path + filename;
+        String target = path + newFilename;
+
+        Path sourcePath = getTargetPath(source, visibility, userId);
+        Path targetPath = getTargetPath(target, visibility, userId);
+
         Path source = Paths.get(path);
         Path target;
         Path parentDir = source.getParent();
         newFilename = id + newFilename;
         long startTime = System.currentTimeMillis();
-        log.info("本地存储开始文件重命名操作 - 文件ID: {}, 原文件名: {}, 新文件名: {}, 路径: {}",
-                id, filename, newFilename, path);
+        log.info("本地存储开始文件重命名操作 - 文件ID: {}, 原文件名: {}, 新文件名: {}, 路径: {}", id, filename, newFilename, path);
 
         if (parentDir == null) {
             target = Paths.get(newFilename);
@@ -370,8 +353,7 @@ public class LocalOssServiceImpl implements OssService {
         } else {
             // 2. 在父目录下构建新的目标路径，使用新的文件名
             target = parentDir.resolve(newFilename);
-            log.debug("源路径父目录 '{}'，新文件名称 '{}'，目标路径 '{}'",
-                    parentDir.toAbsolutePath(), newFilename, target.toAbsolutePath());
+            log.debug("源路径父目录 '{}'，新文件名称 '{}'，目标路径 '{}'", parentDir.toAbsolutePath(), newFilename, target.toAbsolutePath());
         }
 
         try {
@@ -393,14 +375,12 @@ public class LocalOssServiceImpl implements OssService {
             Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
 
             long duration = System.currentTimeMillis() - startTime;
-            log.info("本地存储文件重命名成功 - 文件ID: {}, 原文件名: {}, 新文件名: {}, 大小: {} bytes, 耗时: {} ms",
-                    id, filename, newFilename, fileSize, duration);
+            log.info("本地存储文件重命名成功 - 文件ID: {}, 原文件名: {}, 新文件名: {}, 大小: {} bytes, 耗时: {} ms", id, filename, newFilename, fileSize, duration);
             return true;
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
             log.error("[重命名文件操作] 文件重命名失败: {}", e.getMessage(), e);
-            log.error("本地存储文件重命名失败 - 文件ID: {}, 原文件名: {}, 新文件名: {}, 耗时: {} ms, 错误信息: {}",
-                    id, filename, newFilename, duration, e.getMessage(), e);
+            log.error("本地存储文件重命名失败 - 文件ID: {}, 原文件名: {}, 新文件名: {}, 耗时: {} ms, 错误信息: {}", id, filename, newFilename, duration, e.getMessage(), e);
             return false;
         }
 
@@ -412,7 +392,7 @@ public class LocalOssServiceImpl implements OssService {
      * @param path 要列出的路径
      * @return 包含文件和文件夹信息的VO对象
      * @throws OssException 如果目录不存在
-     * @throws RuntimeException  如果读取目录时发生IO错误
+     * @throws RuntimeException 如果读取目录时发生IO错误
      */
     @Override
     public FilesAndFoldersVO listFiles(String path) {
@@ -420,8 +400,7 @@ public class LocalOssServiceImpl implements OssService {
 
         List<FileInfoVO> fileInfos = fileMetadataMapper.listFileByPath(path, LOCAL);
 
-        Set<FolderInfoVO> folders = fileMetadataMapper.listFolderByPath(path, LOCAL).stream()
-                .map(s -> new FolderInfoVO(s.replace(path, "").split("/")[0], path)).collect(Collectors.toSet());
+        Set<FolderInfoVO> folders = fileMetadataMapper.listFolderByPath(path, LOCAL).stream().map(s -> new FolderInfoVO(s.replace(path, "").split("/")[0], path)).collect(Collectors.toSet());
         fileMetadataMapper.listFolderNameByPath(path, LOCAL).stream().map(s -> new FolderInfoVO(s, path)).forEach(folders::add);
         return new FilesAndFoldersVO(fileInfos, folders);
     }
@@ -442,10 +421,12 @@ public class LocalOssServiceImpl implements OssService {
      * 预览本地文件
      *
      * @param fileMetadataEntity 文件元数据
+     * @param visibility 文件能见度
+     * @param userId 用户 ID
      * @return 文件预览响应实体
      */
     @Override
-    public ResponseEntity<?> previewLocalFile(FileMetadataEntity fileMetadataEntity) {
+    public ResponseEntity<?> previewLocalFile(FileMetadataEntity fileMetadataEntity, VisibilityEnum visibility, String userId) {
 
         String path = fileMetadataEntity.getStoragePath();
 
@@ -453,18 +434,15 @@ public class LocalOssServiceImpl implements OssService {
 
         String filename = fileMetadataEntity.getFileName();
 
-        path = basePath + path;
+        Path targetPath = getTargetPath(path + filename, visibility, userId);
+
         try {
             URLCodec codec = new URLCodec();
-            Path filePath = Paths.get(path, filename);
-            String contentType = Files.probeContentType(filePath);
+
+            String contentType = Files.probeContentType(targetPath);
             String finalContentType = contentType.startsWith("text/") ? contentType + ";charset=UTF-8" : contentType;
-            Resource resource = new UrlResource(filePath.toUri());
-            ResponseEntity<Resource> body = ResponseEntity.ok()
-                    .contentType(MediaType.parseMediaType(finalContentType))
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename*=UTF-8''"
-                            + codec.encode(originalName))
-                    .body(resource);
+            Resource resource = new UrlResource(targetPath.toUri());
+            ResponseEntity<Resource> body = ResponseEntity.ok().contentType(MediaType.parseMediaType(finalContentType)).header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename*=UTF-8''" + codec.encode(originalName)).body(resource);
             log.info("文件预览url获取成功");
             return body;
         } catch (IOException | EncoderException e) {
@@ -482,14 +460,11 @@ public class LocalOssServiceImpl implements OssService {
     @Override
     public ResponseEntity<?> previewLocalAvatar(String absolutePath) {
         try {
-
-            Path filePath = Paths.get(basePath, absolutePath);
+            Path filePath = Paths.get(avatarPath, absolutePath);
             String contentType = Files.probeContentType(filePath);
             Resource resource = new UrlResource(filePath.toUri());
 
-            return ResponseEntity.ok()
-                    .contentType(MediaType.parseMediaType(contentType))
-                    .body(resource);
+            return ResponseEntity.ok().contentType(MediaType.parseMediaType(contentType)).body(resource);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -550,14 +525,12 @@ public class LocalOssServiceImpl implements OssService {
 
             long duration = System.currentTimeMillis() - startTime;
             String fileType = isDirectory ? "目录" : "文件";
-            log.info("本地存储{}移动成功 - 源路径: {}, 目标路径: {}, 大小: {} bytes, 耗时: {} ms",
-                    fileType, sourceAbsolutePath, targetAbsolutePath, fileSize, duration);
+            log.info("本地存储{}移动成功 - 源路径: {}, 目标路径: {}, 大小: {} bytes, 耗时: {} ms", fileType, sourceAbsolutePath, targetAbsolutePath, fileSize, duration);
             return true;
         } catch (IOException e) {
             long duration = System.currentTimeMillis() - startTime;
             log.error("[移动文件操作] 移动文件失败: {}", e.getMessage(), e);
-            log.error("本地存储文件移动失败 - 源路径: {}, 目标路径: {}, 耗时: {} ms, 错误信息: {}",
-                    sourceAbsolutePath, targetAbsolutePath, duration, e.getMessage(), e);
+            log.error("本地存储文件移动失败 - 源路径: {}, 目标路径: {}, 耗时: {} ms, 错误信息: {}", sourceAbsolutePath, targetAbsolutePath, duration, e.getMessage(), e);
             return false;
         }
     }
@@ -573,49 +546,72 @@ public class LocalOssServiceImpl implements OssService {
     }
 
     /**
-     * 上传小文件（小于分块阈值）
+     * 上传文件
      *
-     * @param file       文件信息
-     * @param targetPath 目标路径
+     * @param file 文件信息
      * @return 上传是否成功
      */
-    private boolean uploadSmallFile(MultipartFileDTO file, Path targetPath) {
+    private boolean upload(FileStorageDTO file) {
+        log.info("[上传文件操作] 开始上传文件: {}", file.getFilename());
+
+        // 验证文件大小（本地存储通常有磁盘空间限制）
+        log.debug("开始验证文件大小和磁盘空间");
+        validateFileSize(file.getSize());
+
+        Path path = file.getPath();
+        // 确保目标目录存在
+        createDirectoriesIfNotExists(path.getParent());
+
+        if (file.getSize() > LOCAL_SIZE_THRESHOLD) {
+            log.debug("文件大小超过阈值，使用大文件分块上传策略");
+            // 大文件分块上传
+            return uploadLargeFile(file.getInputStream(), file.getFilename(), file.getSize(), path);
+        } else {
+            log.debug("文件大小未超过阈值，使用小文件直接上传策略");
+            // 小文件直接上传
+            return uploadSmallFile(file.getInputStream(), file.getFilename(), file.getSize(), path);
+        }
+    }
+
+    /**
+     * 上传小文件
+     *
+     * @param inputStream 文件输入流
+     * @param filename 文件名
+     * @param size 文件大小
+     * @param absolutePath 目标路径
+     */
+    private boolean uploadSmallFile(InputStream inputStream, String filename, long size, Path absolutePath) {
         Path tempPath = null;
         long startTime = System.currentTimeMillis();
-        log.debug("开始小文件上传 - 文件名: {}, 大小: {} KB", file.getFilename(), file.getSize() / 1024);
+        log.info("开始小文件上传 - 文件名: {}", filename);
 
         try {
             // 使用临时文件确保原子性操作
-            log.debug("创建临时文件");
-            tempPath = createTempFile(targetPath);
-            log.debug("临时文件创建成功: {}", tempPath);
+            tempPath = createTempFile(absolutePath);
 
             // 直接写入临时文件
-            log.debug("开始写入文件数据到临时文件");
-            try (var inputStream = file.getInputStream();
-                 var outputStream = Files.newOutputStream(tempPath, StandardOpenOption.CREATE,
-                         StandardOpenOption.WRITE)) {
+
+            try (var outputStream = Files.newOutputStream(tempPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
                 inputStream.transferTo(outputStream);
             }
             log.debug("文件数据写入临时文件完成");
 
             // 验证文件完整性
             log.debug("验证文件完整性");
-            validateUploadedFile(tempPath, file.getSize());
+            validateUploadedFile(tempPath, size);
 
             // 原子性移动到目标位置
             log.debug("原子性移动文件到目标位置");
-            Files.move(tempPath, targetPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            Files.move(tempPath, absolutePath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
 
             long duration = System.currentTimeMillis() - startTime;
-            log.info("小文件上传成功 - 文件名: {}, 大小: {} KB, 耗时: {} ms",
-                    file.getFilename(), file.getSize() / 1024, duration);
+            log.info("小文件上传成功 - 文件名: {}, 耗时: {} ms", filename, duration);
             return true;
 
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
-            log.error("小文件上传失败 - 文件名: {}, 耗时: {} ms, 错误信息: {}",
-                    file.getFilename(), duration, e.getMessage(), e);
+            log.error("小文件上传失败 - 文件名: {}, 耗时: {} ms, 错误信息: {}", filename, duration, e.getMessage(), e);
             // 清理临时文件
             cleanupTempFile(tempPath);
             throw new OssException("小文件上传失败: " + e.getMessage());
@@ -623,22 +619,23 @@ public class LocalOssServiceImpl implements OssService {
     }
 
     /**
-     * 上传大文件（大于分块阈值）
+     * 上传大文件
      *
-     * @param file       文件信息
-     * @param targetPath 目标路径
+     * @param inputStream 文件输入流
+     * @param filename 文件名
+     * @param size 文件大小
+     * @param absolutePath 目标路径
      * @return 上传是否成功
      */
-    private boolean uploadLargeFile(MultipartFileDTO file, Path targetPath) {
+    private boolean uploadLargeFile(InputStream inputStream, String filename, long size, Path absolutePath) {
         Path tempPath = null;
         long startTime = System.currentTimeMillis();
-        log.debug("开始大文件分块上传 - 文件名: {}, 大小: {} MB",
-                file.getFilename(), file.getSize() / (1024 * 1024));
+        log.debug("开始大文件分块上传 - 文件名: {}, 大小: {} MB", filename, size / (1024 * 1024));
 
         try {
             // 使用临时文件确保原子性操作
             log.debug("创建临时文件");
-            tempPath = createTempFile(targetPath);
+            tempPath = createTempFile(absolutePath);
             log.debug("临时文件创建成功: {}", tempPath);
 
             // 分块写入大文件（8KB缓冲区）
@@ -648,9 +645,7 @@ public class LocalOssServiceImpl implements OssService {
             long lastProgressTime = System.currentTimeMillis();
 
             log.debug("开始分块写入大文件，缓冲区大小: {} KB", buffer.length / 1024);
-            try (var inputStream = file.getInputStream();
-                 var outputStream = Files.newOutputStream(tempPath, StandardOpenOption.CREATE,
-                         StandardOpenOption.WRITE)) {
+            try (var outputStream = Files.newOutputStream(tempPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
 
                 while ((bytesRead = inputStream.read(buffer)) != -1) {
                     outputStream.write(buffer, 0, bytesRead);
@@ -658,12 +653,7 @@ public class LocalOssServiceImpl implements OssService {
 
                     // 定期记录进度（每10MB或每5秒）
                     long currentTime = System.currentTimeMillis();
-                    if (totalBytesWritten % (10 * 1024 * 1024) == 0 ||
-                            (currentTime - lastProgressTime) > 5000) {
-                        double progress = (double) totalBytesWritten / file.getSize() * 100;
-                        log.debug("大文件上传进度: {} MB / {} MB ({:.1f}%)",
-                                totalBytesWritten / (1024 * 1024),
-                                file.getSize() / (1024 * 1024), progress);
+                    if (totalBytesWritten % (10 * 1024 * 1024) == 0 || (currentTime - lastProgressTime) > 5000) {
                         lastProgressTime = currentTime;
                     }
                 }
@@ -672,21 +662,19 @@ public class LocalOssServiceImpl implements OssService {
 
             // 验证文件完整性
             log.debug("验证大文件完整性");
-            validateUploadedFile(tempPath, file.getSize());
+            validateUploadedFile(tempPath, size);
 
             // 原子性移动到目标位置
             log.debug("原子性移动大文件到目标位置");
-            Files.move(tempPath, targetPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            Files.move(tempPath, absolutePath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
 
             long duration = System.currentTimeMillis() - startTime;
-            log.info("大文件分块上传成功 - 文件名: {}, 大小: {} MB, 耗时: {} ms",
-                    file.getFilename(), file.getSize() / (1024 * 1024), duration);
+            log.info("大文件分块上传成功 - 文件名: {}, 大小: {} MB, 耗时: {} ms", filename, size / (1024 * 1024), duration);
             return true;
 
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
-            log.error("大文件分块上传失败 - 文件名: {}, 耗时: {} ms, 错误信息: {}",
-                    file.getFilename(), duration, e.getMessage(), e);
+            log.error("大文件分块上传失败 - 文件名: {}, 耗时: {} ms, 错误信息: {}", filename, duration, e.getMessage(), e);
             // 清理临时文件
             cleanupTempFile(tempPath);
             throw new OssException("大文件分块上传失败: " + e.getMessage());
@@ -701,7 +689,7 @@ public class LocalOssServiceImpl implements OssService {
     private void validateFileSize(long fileSize) {
         // 检查可用磁盘空间
         try {
-            Path basePathObj = Paths.get(basePath);
+            Path basePathObj = Paths.get(userPath);
             long usableSpace = Files.getFileStore(basePathObj).getUsableSpace();
 
             if (fileSize > usableSpace) {
@@ -723,12 +711,14 @@ public class LocalOssServiceImpl implements OssService {
      * 创建目录（如果不存在）
      *
      * @param parentDir 父目录路径
-     * @throws IOException 如果创建目录失败
      */
-    private void createDirectoriesIfNotExists(Path parentDir) throws IOException {
+    private void createDirectoriesIfNotExists(Path parentDir) {
         if (parentDir != null && !Files.exists(parentDir)) {
-            Files.createDirectories(parentDir);
-            log.debug("创建目录: {}", parentDir);
+            try {
+                Files.createDirectories(parentDir);
+            } catch (IOException e) {
+                throw new OssException("文件夹创建失败", e);
+            }
         }
     }
 
@@ -737,26 +727,32 @@ public class LocalOssServiceImpl implements OssService {
      *
      * @param targetPath 目标文件路径
      * @return 临时文件路径
-     * @throws IOException 如果创建临时文件失败
      */
-    private Path createTempFile(Path targetPath) throws IOException {
+    private Path createTempFile(Path targetPath) {
         Path parentDir = targetPath.getParent();
         String fileName = targetPath.getFileName().toString();
-        return Files.createTempFile(parentDir, fileName + ".", ".tmp");
+        try {
+            return Files.createTempFile(parentDir, fileName + ".", ".tmp");
+        } catch (IOException e) {
+            throw new OssException("临时文件创建失败", e);
+        }
     }
 
     /**
      * 验证上传的文件
      *
-     * @param filePath     文件路径
+     * @param filePath 文件路径
      * @param expectedSize 期望的文件大小
-     * @throws IOException 如果文件大小不匹配
      */
-    private void validateUploadedFile(Path filePath, long expectedSize) throws IOException {
-        long actualSize = Files.size(filePath);
+    private void validateUploadedFile(Path filePath, long expectedSize) {
+        long actualSize;
+        try {
+            actualSize = Files.size(filePath);
+        } catch (IOException e) {
+            throw new OssException("无法获取文件大小进行验证", e);
+        }
         if (actualSize != expectedSize) {
-            throw new IOException(
-                    String.format("文件大小不匹配，期望: %d bytes, 实际: %d bytes", expectedSize, actualSize));
+            throw new OssException(String.format("文件大小不匹配，期望: %d bytes, 实际: %d bytes", expectedSize, actualSize));
         }
     }
 
@@ -777,39 +773,23 @@ public class LocalOssServiceImpl implements OssService {
     }
 
     /**
-     * 获取用户头像URL
+     * 获取目标路径
      *
-     * @param avatarPath 头像路径
-     * @param filename   头像文件名
-     * @return 头像访问URL
+     * @param absolutePath 绝对路径
+     * @param visibility 访问权限
+     * @param userId 用户 Id
+     * @return 目标路径
      */
-    public String getUserAvatar(String avatarPath, String filename) {
-        long startTime = System.currentTimeMillis();
-        log.info("本地存储开始获取用户头像URL - 头像路径: {}, 文件名: {}", avatarPath, filename);
-
-        try {
-            String fullPath = basePath + avatarPath;
-            Path filePath = Paths.get(fullPath, filename);
-
-            log.debug("检查头像文件是否存在: {}", filePath);
-            if (!Files.exists(filePath)) {
-                log.warn("头像文件不存在: {}", filePath);
-                throw new OssException("头像文件不存在");
-            }
-
-            // 构建可访问的URL，使用配置的URL映射
-            String avatarUrl = "/avatars/" + avatarPath + "/" + filename;
-
-            long duration = System.currentTimeMillis() - startTime;
-            log.info("本地存储获取用户头像URL成功 - 头像路径: {}, 文件名: {}, URL: {}, 耗时: {} ms",
-                    avatarPath, filename, avatarUrl, duration);
-            return avatarUrl;
-        } catch (Exception e) {
-            long duration = System.currentTimeMillis() - startTime;
-            log.error("本地存储获取用户头像URL失败 - 头像路径: {}, 文件名: {}, 耗时: {} ms, 错误信息: {}",
-                    avatarPath, filename, duration, e.getMessage(), e);
-            throw e;
+    public Path getTargetPath(String absolutePath, VisibilityEnum visibility, String userId) {
+        Path targetPath;
+        if (visibility == VisibilityEnum.PRIVATE) {
+            targetPath = Paths.get(userPath, userId, absolutePath);
+        } else if (visibility == VisibilityEnum.PUBLIC) {
+            targetPath = Paths.get(publicPath, absolutePath);
+        } else {
+            throw new OssException("未知的访问权限");
         }
+        return targetPath;
     }
 
 }

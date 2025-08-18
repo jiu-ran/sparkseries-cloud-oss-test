@@ -5,11 +5,12 @@
 <mapper namespace="com.sparkseries.module.oss.file.dao.FileMetadataMapper">
 
     <insert id="insertFile">
-        INSERT INTO file_metadata (id, filename, original_name, file_type, file_size, storage_path,
+        INSERT INTO file_metadata (id, filename, user_id, file_type, file_size, storage_path,
                                    last_update_date, storage_type)
-        VALUES (#{file.id}, #{file.filename}, #{file.originalName}, #{file.fileType}, #{file.fileSize},
+        VALUES (#{file.id}, #{file.filename}, #{file.userId}, #{file.fileType}, #{file.fileSize},
                 #{file.storagePath}, #{file.lastUpdateDate}, #{file.storageType})
     </insert>
+
     <insert id="insertFolder">
         INSERT INTO folder_metadata (id, folder_name, absolute_path, last_update_date, storage_type)
         VALUES (#{folder.id}, #{folder.folderName}, #{folder.absolutePath}, #{folder.lastUpdateDate},
@@ -46,8 +47,8 @@
 
     <update id="updateFileNameAndPath">
         UPDATE file_metadata
-        SET original_name = #{fileName},
-            storage_path  = #{path}
+        SET filename     = #{fileName},
+            storage_path = #{path}
         WHERE id = #{id}
           and storage_type = #{storageType}
     </update>
@@ -61,8 +62,7 @@
 
     <update id="updateFileName">
         UPDATE file_metadata
-        SET original_name = #{originalName},
-            filename      = #{fileName}
+        SET filename = #{fileName}
         WHERE id = #{id}
           and storage_type = #{storageType}
     </update>
@@ -70,7 +70,7 @@
     <select id="isExistFileByName" resultType="java.lang.Integer">
         SELECT COUNT(*)
         FROM file_metadata
-        WHERE original_name = #{name}
+        WHERE filename = #{name}
           and storage_path = #{path}
           and storage_type = #{storageType}
     </select>
@@ -92,7 +92,7 @@
 
     <select id="listFileByPath"
             resultType="com.sparkseries.module.oss.file.vo.FileInfoVO">
-        SELECT id, original_name, file_size, last_update_date
+        SELECT id, filename, file_size, last_update_date
         FROM file_metadata
         WHERE storage_path = #{path}
           and storage_type = #{storageType};

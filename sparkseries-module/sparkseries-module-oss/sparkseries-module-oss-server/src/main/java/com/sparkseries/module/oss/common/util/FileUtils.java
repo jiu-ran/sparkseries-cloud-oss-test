@@ -1,7 +1,6 @@
 package com.sparkseries.module.oss.common.util;
 
 import com.baomidou.mybatisplus.core.toolkit.ObjectUtils;
-
 import com.sparkseries.module.oss.common.exception.OssException;
 import lombok.extern.slf4j.Slf4j;
 
@@ -38,22 +37,22 @@ public class FileUtils {
     public static void isValidFileName(String filename) {
 
         if (ObjectUtils.isEmpty(filename)) {
-            log.error("文件名为空");
+            log.warn("文件名为空");
             throw new OssException("文件名为空");
         }
 
         if (filename.length() > 255) {
-            log.error("文件名长度超过255");
+            log.warn("文件名长度超过255");
             throw new OssException("文件名长度超过255");
         }
 
         if (ILLEGAL_CHAR_PATTERN.matcher(filename).find()) {
-            log.error("文件名包含非法字符");
+            log.warn("文件名包含非法字符");
             throw new OssException("文件名包含非法字符");
         }
 
         if (CONSECUTIVE_DOTS_PATTERN.matcher(filename).find()) {
-            log.error("文件名包含连续点号");
+            log.warn("文件名包含连续点号");
             throw new OssException("文件名包含连续点号");
         }
 
@@ -81,6 +80,66 @@ public class FileUtils {
         return fileName;
     }
 
+    /**
+     * 校验文件夹名是否合法
+     *
+     * @param folderName 需校验的文件夹名
+     * @throws OssException 如果文件夹名不合法
+     */
+    public static void isValidFolderName(String folderName) {
+        if (ObjectUtils.isEmpty(folderName)) {
+            log.warn("文件夹名为空");
+            throw new OssException("文件夹名为空");
+        }
+
+        if (folderName.length() > 255) {
+            log.warn("文件夹名长度超过255");
+            throw new OssException("文件夹名长度超过255");
+        }
+
+        if (ILLEGAL_CHAR_PATTERN.matcher(folderName).find()) {
+            log.warn("文件夹名包含非法字符");
+            throw new OssException("文件夹名包含非法字符");
+        }
+
+        if (CONSECUTIVE_DOTS_PATTERN.matcher(folderName).find()) {
+            log.warn("文件夹名包含连续点号");
+            throw new OssException("文件夹名包含连续点号");
+        }
+
+        // 添加针对文件夹的特殊校验：禁止使用 "." 或 ".." 作为文件夹名
+        if (".".equals(folderName) || "..".equals(folderName)) {
+            log.warn("文件夹名不能是 '.' 或 '..'");
+            throw new OssException("文件夹名不能是 '.' 或 '..'");
+        }
+    }
+
+    /**
+     * 规范化文件夹名
+     * 此方法执行以下清理操作，以生成一个更安全的文件夹名：
+     * 1. 去除首尾的空格。
+     * 2. 移除所有在文件名中非法的字符，包括路径分隔符 (/, \, :, *, ?, ", <, >, |)。
+     * 3. 去除首尾的一个或多个点，以避免创建隐藏文件夹或在某些系统中无效的文件夹名。
+     *
+     * @param folderName 原始文件夹名
+     * @return 经过清理和规范化的文件夹名
+     */
+    public static String normalizeFolderName(String folderName) {
+        if (folderName == null) {
+            return "";
+        }
+
+        // 1. 去除首尾空格
+        String normalized = folderName.trim();
+
+        // 2. 移除所有非法字符
+        normalized = ILLEGAL_CHAR_PATTERN.matcher(normalized).replaceAll("");
+
+        // 3. 去除首尾的所有点 (e.g., "...folder..." -> "folder")
+        normalized = normalized.replaceAll("^\\.+|\\.+$", "");
+
+        return normalized;
+    }
 
     /**
      * 校验路径是否符合规则，包括空路径、Windows盘符格式和非法字符
@@ -89,18 +148,18 @@ public class FileUtils {
      */
     public static void isValidPath(String path) {
         if (ObjectUtils.isEmpty(path)) {
-            log.error("路径为空");
+            log.warn("路径为空");
             throw new OssException("路径为空");
         }
 
         if (path.matches("^[A-Za-z]:/.*")) {
-            log.error("路径格式不正确");
+            log.warn("路径格式不正确");
             throw new OssException("路径格式不正确");
         }
 
         // 检查非法字符
         if (ILLEGAL_CHARS_PATTERN.matcher(path).find()) {
-            log.error("路径包含非法字符");
+            log.warn("路径包含非法字符");
             throw new OssException("路径包含非法字符");
         }
     }
@@ -194,6 +253,19 @@ public class FileUtils {
     public static String normalizeAndValidateFileName(String fileName) {
         String normalized = normalizeFileName(fileName);
         isValidFileName(normalized);
+        return normalized;
+    }
+
+    /**
+     * 规范化文件夹名并进行合法性校验。
+     *
+     * @param folderName 原始文件夹名
+     * @return 规范化且合法的文件夹名
+     * @throws OssException 如果规范化后的名称不合法
+     */
+    public static String normalizeAndValidateFolderName(String folderName) {
+        String normalized = normalizeFolderName(folderName);
+        isValidFolderName(normalized);
         return normalized;
     }
 

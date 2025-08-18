@@ -1,10 +1,11 @@
 package com.sparkseries.module.oss.file.entity;
 
 import com.sparkeries.enums.StorageTypeEnum;
-import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
 
 /**
  * 文件元数据信息
@@ -18,7 +19,7 @@ public class FileMetadataEntity {
 
     private String fileName;
 
-    private String originalName;
+    private Long userId;
 
     private String fileType;
 

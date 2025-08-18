@@ -33,7 +33,7 @@ public interface AvatarMapper {
      * @param userId 用户ID
      * @return 头像信息
      */
-    String getAvatarAbsolutePathByUserId(@Param("userId") Long userId);
+    String getAvatarPathByUserId(@Param("userId") Long userId);
 
 
 }

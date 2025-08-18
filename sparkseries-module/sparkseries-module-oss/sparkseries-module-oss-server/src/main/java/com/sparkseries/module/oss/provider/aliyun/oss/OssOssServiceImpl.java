@@ -4,7 +4,9 @@ package com.sparkseries.module.oss.provider.aliyun.oss;
 import com.aliyun.oss.HttpMethod;
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.model.*;
+import com.sparkeries.dto.FileStorageDTO;
 import com.sparkeries.enums.StorageTypeEnum;
+import com.sparkeries.enums.VisibilityEnum;
 import com.sparkseries.module.oss.common.api.provider.service.OssService;
 import com.sparkseries.module.oss.common.exception.OssException;
 import com.sparkseries.module.oss.file.dao.FileMetadataMapper;
@@ -60,7 +62,7 @@ public class OssOssServiceImpl implements OssService {
      * @return 如果文件上传成功，则返回true；否则返回false
      */
     @Override
-    public boolean upload(MultipartFileDTO file) {
+    public boolean uploadFile(FileStorageDTO file, VisibilityEnum visibility) {
         log.info("[上传文件操作] 开始上传文件: {}, 大小: {} bytes", file.getAbsolutePath(),
                 file.getSize());
         OSS client = null;
@@ -90,12 +92,12 @@ public class OssOssServiceImpl implements OssService {
     }
 
     @Override
-    public boolean uploadAvatar(MultipartFileDTO avatar) {
+    public boolean uploadAvatar(FileStorageDTO avatar) {
         log.info("[上传头像操作] 开始头像上传到OSS: 文件名='{}', 大小={} bytes, 目标路径='{}'",
                 avatar.getFilename(), avatar.getSize(), avatar.getAbsolutePath());
 
         // 复用upload方法的完整逻辑（包括分片上传策略、元数据设置等）
-        boolean result = upload(avatar);
+        boolean result = uploadFile(avatar);
 
         if (result) {
             log.info("[上传头像操作] 头像上传到OSS成功: 文件名='{}', 路径='{}'",
@@ -112,10 +114,12 @@ public class OssOssServiceImpl implements OssService {
      * 在OSS中创建文件夹
      *
      * @param path 要创建的文件夹的路径
+     * @param visibility 可见性
+     * @param userId 用户ID
      * @return 如果文件夹创建成功，则返回true；否则返回false
      */
     @Override
-    public boolean createFolder(String path) {
+    public boolean createFolder(String path, VisibilityEnum visibility, String userId) {
         log.info("[创建文件夹操作] 开始创建文件夹: {}", path);
         OSS client = null;
 
@@ -156,10 +160,12 @@ public class OssOssServiceImpl implements OssService {
      * 从OSS中删除文件
      *
      * @param absolutePath 要删除的文件的绝对路径
+     * @param visibility
+     * @param userId
      * @return 如果文件删除成功，则返回true；否则返回false
      */
     @Override
-    public boolean deleteFile(String absolutePath) {
+    public boolean deleteFile(String absolutePath, VisibilityEnum visibility, String userId) {
         log.info("[删除文件操作] 开始删除文件: {}", absolutePath);
         OSS client = null;
         try {
@@ -186,10 +192,12 @@ public class OssOssServiceImpl implements OssService {
      * 从OSS中删除文件夹及其内容
      *
      * @param path 要删除的文件夹的路径
+     * @param visibility
+     * @param userId
      * @return 如果文件夹删除成功，则返回true；否则返回false
      */
     @Override
-    public boolean deleteFolder(String path) {
+    public boolean deleteFolder(String path, VisibilityEnum visibility, String userId) {
         log.info("[删除文件夹操作] 开始删除文件夹: {}", path);
         OSS client = null;
         try {
@@ -237,12 +245,13 @@ public class OssOssServiceImpl implements OssService {
     /**
      * 生成文件的下载URL
      *
-     * @param absolutePath     文件的绝对路径
+     * @param absolutePath 文件的绝对路径
      * @param downloadFileName 下载时显示的文件名
+     * @param visibility
      * @return 生成的下载URL字符串
      */
     @Override
-    public String downLoad(String absolutePath, String downloadFileName) {
+    public String downLoad(String absolutePath, String downloadFileName, VisibilityEnum visibility) {
         log.info("[下载文件操作] 开始生成下载链接: {}, 下载文件名: {}", absolutePath,
                 downloadFileName);
         OSS client = null;
@@ -281,24 +290,27 @@ public class OssOssServiceImpl implements OssService {
      * 下载本地文件（此方法在OSS服务中不适用，返回null）
      *
      * @param metadata 文件的元数据实体
+     * @param visibilityEnum 访问权限枚举
      * @return 始终返回null
      */
     @Override
-    public ResponseEntity<?> downLocalFile(FileMetadataEntity metadata) {
+    @Deprecated
+    public ResponseEntity<?> downLocalFile(FileMetadataEntity metadata, VisibilityEnum visibilityEnum) {
         return null;
     }
 
     /**
      * 重命名OSS中的文件
      *
-     * @param id          文件ID
-     * @param filename    文件的当前名称
+     * @param id 文件ID
+     * @param filename 文件的当前名称
      * @param newFilename 文件的新名称
-     * @param path        文件所在的路径
+     * @param path 文件所在的路径
+     * @param visibility 能见度
      * @return 如果文件重命名成功，则返回true；否则返回false
      */
     @Override
-    public boolean rename(Long id, String filename, String newFilename, String path) {
+    public boolean rename(Long id, String filename, String newFilename, String path, VisibilityEnum visibility) {
         OSS client = null;
         String sourceAbsolutePath = path + id + filename;
         String targetAbsolutePath = path + id + newFilename;
@@ -323,7 +335,7 @@ public class OssOssServiceImpl implements OssService {
                     targetAbsolutePath);
 
             // 步骤 2: 删除源文件
-            deleteFile(sourceAbsolutePath);
+            deleteFile(sourceAbsolutePath, , );
             log.info("[重命名文件操作] 成功删除源文件: [{}]", sourceAbsolutePath);
 
             log.info("[重命名文件操作] 文件重命名成功，从 [{}] 到 [{}].", sourceAbsolutePath,
@@ -346,10 +358,11 @@ public class OssOssServiceImpl implements OssService {
      * 列出指定路径下的文件和文件夹
      *
      * @param path 要列出内容的路径
+     * @param visibility 能见度
      * @return 包含文件和文件夹信息的FilesAndFoldersVO对象
      */
     @Override
-    public FilesAndFoldersVO listFiles(String path) {
+    public FilesAndFoldersVO listFiles(String path, VisibilityEnum visibility) {
         log.info("[列出文件操作] 开始列出路径下的文件和文件夹: {}", path);
 
         List<FileInfoVO> fileInfos = fileMetadataMapper.listFileByPath(path, StorageTypeEnum.OSS);
@@ -408,11 +421,13 @@ public class OssOssServiceImpl implements OssService {
      * 预览本地文件（此方法在OSS服务中不适用，返回null）
      *
      * @param metadata 文件的元数据实体
+     * @param visibility
+     * @param userId
      * @return 始终返回null
      */
     @Override
     @Deprecated
-    public ResponseEntity<?> previewLocalFile(FileMetadataEntity metadata) {
+    public ResponseEntity<?> previewLocalFile(FileMetadataEntity metadata, VisibilityEnum visibility, String userId) {
         return null;
     }
 
@@ -451,7 +466,7 @@ public class OssOssServiceImpl implements OssService {
             log.debug("[移动文件操作] 文件复制成功，开始删除源文件");
 
             // 步骤 2: 删除源文件
-            deleteFile(sourceAbsolutePath);
+            deleteFile(sourceAbsolutePath, , );
             log.info("成功删除源 OSS 文件: [{}]", sourceAbsolutePath);
             log.debug("[移动文件操作] 源文件删除成功");
 
@@ -499,12 +514,12 @@ public class OssOssServiceImpl implements OssService {
     /**
      * 分片上传文件到 OSS
      *
-     * @param client      OSS 客户端
+     * @param client OSS 客户端
      * @param inputStream 文件输入流
-     * @param fileSize    文件大小（字节）
-     * @param bucketName  Bucket 名称
-     * @param objectKey   对象键
-     * @param metadata    元数据
+     * @param fileSize 文件大小（字节）
+     * @param bucketName Bucket 名称
+     * @param objectKey 对象键
+     * @param metadata 元数据
      * @throws Exception 如果上传失败
      */
     public void uploadFileByMultipart(OSS client, InputStream inputStream, long fileSize,

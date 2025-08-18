@@ -15,6 +15,8 @@ public class MultipartFileDTO {
 
     private String id;
 
+    private Long userId;
+
     private String filename;
 
     private InputStream inputStream;
@@ -30,11 +32,19 @@ public class MultipartFileDTO {
     /**
      * 构造方法
      *
-     * @param filename    文件名
+     * @param filename 文件名
      * @param inputStream 文件输入流
-     * @param size        文件大小
-     * @param type        文件类型
+     * @param size 文件大小
+     * @param type 文件类型
      */
+    public MultipartFileDTO(Long userId, String filename, InputStream inputStream, Long size, String type) {
+        this.userId = userId;
+        this.filename = filename;
+        this.inputStream = inputStream;
+        this.size = size;
+        this.type = type;
+    }
+
     public MultipartFileDTO(String filename, InputStream inputStream, Long size, String type) {
         this.filename = filename;
         this.inputStream = inputStream;

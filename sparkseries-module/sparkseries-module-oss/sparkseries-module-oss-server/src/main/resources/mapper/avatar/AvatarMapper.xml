@@ -19,7 +19,7 @@
         where user_id = #{avatar.userId}
     </update>
 
-    <select id="getAvatarAbsolutePathByUserId" resultType="java.lang.String">
+    <select id="getAvatarPathByUserId" resultType="java.lang.String">
         select avatar_path
         from sys_user_avatar
         where user_id = #{userId}
