@@ -351,15 +351,15 @@ public class CosOssServiceImpl implements OssService {
     /**
      * 创建文件夹
      *
-     * @param path 文件夹路径
+     * @param absolutePath 文件夹路径
      * @param visibility
      * @return 创建是否成功
      */
     @Override
-    public boolean createFolder(String path, VisibilityEnum visibility, String userId) {
+    public boolean createFolder(String absolutePath, VisibilityEnum visibility, String userId) {
         COSClient client = null;
         long startTime = System.currentTimeMillis();
-        log.info("COS 开始创建文件夹 - 路径: {}", path);
+        log.info("COS 开始创建文件夹 - 路径: {}", absolutePath);
 
         try {
             log.debug("[创建文件夹操作] 从连接池获取COS客户端连接");
@@ -367,25 +367,25 @@ public class CosOssServiceImpl implements OssService {
             log.debug("[创建文件夹操作] 成功获取COS客户端连接，检查文件夹是否存在");
 
             // 检查文件夹是否已存在（可选）
-            if (client.doesObjectExist(bucketName, path)) {
-                log.warn("COS 文件夹已存在 - 路径: {}", path);
+            if (client.doesObjectExist(bucketName, absolutePath)) {
+                log.warn("COS 文件夹已存在 - 路径: {}", absolutePath);
                 return false;
             }
 
             log.debug("文件夹不存在，开始创建空对象表示文件夹");
             // 创建空对象表示文件夹
             byte[] emptyContent = new byte[0];
-            PutObjectRequest request = new PutObjectRequest(bucketName, path,
+            PutObjectRequest request = new PutObjectRequest(bucketName, absolutePath,
                     new ByteArrayInputStream(emptyContent), null);
             PutObjectResult result = client.putObject(request);
 
             long duration = System.currentTimeMillis() - startTime;
-            log.info("COS 文件夹创建成功 - 路径: {}, eTag: {}, 耗时: {} ms", path, result.getETag(),
+            log.info("COS 文件夹创建成功 - 路径: {}, eTag: {}, 耗时: {} ms", absolutePath, result.getETag(),
                     duration);
             return true;
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
-            log.error("COS 创建文件夹失败 - 路径: {}, 耗时: {} ms, 错误信息: {}", path, duration,
+            log.error("COS 创建文件夹失败 - 路径: {}, 耗时: {} ms, 错误信息: {}", absolutePath, duration,
                     e.getMessage(), e);
             throw new OssException("创建文件夹失败: " + e.getMessage());
         } finally {
@@ -526,12 +526,11 @@ public class CosOssServiceImpl implements OssService {
      * 生成文件下载链接
      *
      * @param absolutePath 文件绝对路径
-     * @param downloadFileName 下载文件名
      * @param visibility
      * @return 下载链接
      */
     @Override
-    public String downLoad(String absolutePath, String downloadFileName, VisibilityEnum visibility) {
+    public String downLoad(String absolutePath, VisibilityEnum visibility) {
         COSClient client = null;
         long startTime = System.currentTimeMillis();
         log.info("COS 开始生成下载链接 - 文件路径: {}, 下载文件名: {}", absolutePath,
@@ -584,16 +583,6 @@ public class CosOssServiceImpl implements OssService {
             }
         }
     }
-
-    /**
-     * 下载本地文件
-     */
-    @Override
-    @Deprecated
-    public ResponseEntity<?> downLocalFile(FileMetadataEntity metadata, VisibilityEnum visibilityEnum) {
-        return null;
-    }
-
 
     /**
      * 重命名文件
@@ -739,40 +728,15 @@ public class CosOssServiceImpl implements OssService {
     }
 
     /**
-     * 预览本地文件（此方法在COS存储服务中不实现，始终返回null）
-     *
-     * @param metadata 文件元数据实体
-     * @param visibility
-     * @param userId
-     * @return 始终返回null
-     */
-    @Override
-    @Deprecated
-    public ResponseEntity<?> previewLocalFile(FileMetadataEntity metadata, VisibilityEnum visibility, String userId) {
-        return null;
-    }
-
-    /**
-     * 预览本地头像（此方法在COS存储服务中不实现，始终返回null）
-     *
-     * @param ath 头像路径
-     * @return 始终返回null
-     */
-    @Deprecated
-    @Override
-    public ResponseEntity<?> previewLocalAvatar(String ath) {
-        return null;
-    }
-
-    /**
      * 移动文件
      *
      * @param sourceAbsolutePath 源文件绝对路径
      * @param targetAbsolutePath 目标文件绝对路径
+     * @param visibility 能见度
      * @return 移动是否成功
      */
     @Override
-    public boolean moveFile(String sourceAbsolutePath, String targetAbsolutePath) {
+    public boolean moveFile(String sourceAbsolutePath, String targetAbsolutePath, VisibilityEnum visibility) {
 
         COSClient client = null;
         long startTime = System.currentTimeMillis();

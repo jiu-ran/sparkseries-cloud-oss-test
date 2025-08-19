@@ -1,10 +1,11 @@
 package com.sparkseries.module.oss.file.entity;
 
 import com.sparkeries.enums.StorageTypeEnum;
-import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
 
 @Data
 @AllArgsConstructor
@@ -13,7 +14,11 @@ public class FolderMetadataEntity {
 
     private Long id;
 
+    private Long userId;
+
     private String folderName;
+
+    private String storagePath;
 
     private String absolutePath;
 

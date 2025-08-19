@@ -24,9 +24,9 @@ public class FileStorageDTO {
     private String filename;
     @Schema(description = "文件大小")
     private Long size;
-    @Schema(description = "文件绝对路径")
+    @Schema(description = "绝对路径")
     private String absolutePath;
-    @Schema(description = "文件路径")
+    @Schema(description = "父路径路径")
     private Path path;
 
     public FileStorageDTO(String userId, InputStream inputStream, String filename, Long size, String absolutePath) {

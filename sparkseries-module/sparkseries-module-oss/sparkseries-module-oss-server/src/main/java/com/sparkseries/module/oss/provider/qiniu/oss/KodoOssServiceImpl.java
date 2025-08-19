@@ -225,41 +225,41 @@ public class KodoOssServiceImpl implements OssService {
     /**
      * 创建文件夹
      *
-     * @param path 文件夹路径
+     * @param absolutePath 文件夹路径
      * @param visibility 文件夹可见性
      * @param userId 用户 ID
      * @return 创建是否成功
      */
     @Override
-    public boolean createFolder(String path, VisibilityEnum visibility, String userId) {
-        log.info("[创建文件夹操作] 开始创建文件夹: {}", path);
+    public boolean createFolder(String absolutePath, VisibilityEnum visibility, String userId) {
+        log.info("[创建文件夹操作] 开始创建文件夹: {}", absolutePath);
         Auth client = null;
         try {
             log.debug("[创建文件夹操作] 从连接池获取Kodo客户端连接");
             client = clientPool.getClient();
             log.debug("[创建文件夹操作] 成功获取Kodo客户端连接，开始检查文件夹是否存在");
-            if (isFolderExists(path)) {
-                log.warn("[创建文件夹操作] 文件夹已存在: {}", path);
+            if (isFolderExists(absolutePath)) {
+                log.warn("[创建文件夹操作] 文件夹已存在: {}", absolutePath);
                 throw new OssException("文件夹已存在");
             }
             UploadManager uploadManager = new UploadManager(config);
-            String uploadToken = client.uploadToken(bucketName, path);
+            String uploadToken = client.uploadToken(bucketName, absolutePath);
 
             byte[] emptyData = new byte[0];
 
-            Response response = uploadManager.put(emptyData, path, uploadToken);
+            Response response = uploadManager.put(emptyData, absolutePath, uploadToken);
 
             if (!response.isOK()) {
                 throw new OssException("文件夹创建失败: " + response.error);
             }
-            log.info("[创建文件夹操作] 文件夹创建成功: {}", path);
+            log.info("[创建文件夹操作] 文件夹创建成功: {}", absolutePath);
 
         } catch (OssException e) {
-            log.error("[创建文件夹操作] 文件夹创建失败: {}, 错误: {}", path, e.getMessage());
+            log.error("[创建文件夹操作] 文件夹创建失败: {}, 错误: {}", absolutePath, e.getMessage());
             throw new OssException("文件夹:" + "创建失败" + e.getMessage());
         } catch (QiniuException e) {
             if (e.code() == 612) {
-                log.debug("[创建文件夹操作] 目录 {} 不存在", path);
+                log.debug("[创建文件夹操作] 目录 {} 不存在", absolutePath);
             }
             log.error("[创建文件夹操作] 七牛云异常: {}, 错误码: {}", e.getMessage(), e.code());
         } catch (Exception e) {
@@ -450,12 +450,11 @@ public class KodoOssServiceImpl implements OssService {
      * 生成文件下载链接
      *
      * @param absolutePath 文件绝对路径
-     * @param downloadFileName 下载文件名
      * @param visibility
      * @return 下载链接
      */
     @Override
-    public String downLoad(String absolutePath, String downloadFileName, VisibilityEnum visibility) {
+    public String downLoad(String absolutePath, VisibilityEnum visibility) {
         log.info("[下载文件操作] 开始生成下载链接: {}, 下载文件名: {}", absolutePath,
                 downloadFileName);
         Auth client = null;
@@ -491,19 +490,6 @@ public class KodoOssServiceImpl implements OssService {
             }
         }
 
-    }
-
-    /**
-     * 下载本地文件（此方法已废弃，不实现）
-     *
-     * @param metadata 文件元数据
-     * @param visibilityEnum
-     * @return 始终返回null
-     */
-    @Override
-    @Deprecated
-    public ResponseEntity<?> downLocalFile(FileMetadataEntity metadata, VisibilityEnum visibilityEnum) {
-        return null;
     }
 
     /**
@@ -624,32 +610,6 @@ public class KodoOssServiceImpl implements OssService {
         // 注意：为了提示浏览器在线预览，可以在 URL 中添加 response-content-disposition=inline 参数
 
         return String.format("%s/%s?response-content-disposition=inline", domains[0], encode);
-    }
-
-    /**
-     * 预览本地文件（此方法已废弃，不实现）
-     *
-     * @param metadata 文件元数据
-     * @param visibility
-     * @param userId
-     * @return 始终返回null
-     */
-    @Override
-    @Deprecated
-    public ResponseEntity<?> previewLocalFile(FileMetadataEntity metadata, VisibilityEnum visibility, String userId) {
-        return null;
-    }
-
-    /**
-     * 预览本地头像（此方法已废弃，不实现）
-     *
-     * @param ath 头像路径
-     * @return 始终返回null
-     */
-    @Deprecated
-    @Override
-    public ResponseEntity<?> previewLocalAvatar(String ath) {
-        return null;
     }
 
     /**

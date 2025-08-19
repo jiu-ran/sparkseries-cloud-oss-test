@@ -40,6 +40,6 @@ public interface AvatarService {
      * @param userId 用户 ID
      * @return 文件预览响应
      */
-    ResponseEntity<?> previewLocalAvatar(Long userId);
+    ResponseEntity<?> getLocalAvatar(Long userId);
 
 }

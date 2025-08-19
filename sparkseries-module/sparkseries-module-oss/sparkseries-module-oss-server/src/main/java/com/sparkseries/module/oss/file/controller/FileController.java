@@ -38,7 +38,7 @@ public class FileController {
     /**
      * 文件上传
      *
-     * @param files 文件集
+     * @param files 待上传的文件列表
      * @param path 文件存储路径
      * @param visibility 能见度
      * @return 上传结果
@@ -55,8 +55,7 @@ public class FileController {
         for (MultipartFile file : files) {
             try {
                 String type = tika.detect(file.getInputStream());
-                fileInfos.add(
-                        new MultipartFileDTO(userId, file.getOriginalFilename(), file.getInputStream(), file.getSize(), type));
+                fileInfos.add(new MultipartFileDTO(userId, file.getOriginalFilename(), file.getInputStream(), file.getSize(), type));
             } catch (IOException e) {
                 throw new OssException("文件上传失败", e);
             }
@@ -79,7 +78,7 @@ public class FileController {
                                   @RequestParam @NotBlank String folderName,
                                   @RequestParam(defaultValue = "PRIVATE") VisibilityEnum visibility) {
 
-        return fileServer.createFolder(path,folderName, visibility);
+        return fileServer.createFolder(path, folderName, visibility);
     }
 
     /**
@@ -98,18 +97,36 @@ public class FileController {
     }
 
     /**
-     * 删除文件夹
+     * 删除文件夹及文件夹下的文件
      *
      * @param path 文件夹路径
      * @param visibility 能见度
      * @return 删除结果
      */
     @DeleteMapping("/folder")
-    @Operation(summary = "删除文件夹")
+    @Operation(summary = "删除文件夹及文件夹下的文件")
     public Result<?> deleteFolder(@RequestParam("path") @NotBlank(message = "请输入文件夹路径") String path,
                                   @RequestParam(defaultValue = "PRIVATE") VisibilityEnum visibility) {
 
         return fileServer.deleteFolder(path, visibility);
+    }
+
+
+    /**
+     * 文件重命名
+     *
+     * @param id 文件 ID
+     * @param name 新文件名
+     * @param visibility 能见度
+     * @return 重命名结果
+     */
+    @PutMapping("/rename/{id}")
+    @Operation(summary = "文件重命名")
+    public Result<?> rename(@PathVariable("id") @NotNull(message = "请输入文件id") Long id,
+                            @RequestParam(value = "name") @NotBlank(message = "请输入文件名") String name,
+                            @RequestParam(defaultValue = "PRIVATE") VisibilityEnum visibility) {
+
+        return fileServer.rename(id, name, visibility);
     }
 
     /**
@@ -129,31 +146,28 @@ public class FileController {
         return fileServer.moveFile(id, path, visibility);
     }
 
-    /**
-     * 文件重命名
-     *
-     * @param id 文件ID
-     * @param name 新文件名
-     * @param visibility 能见度
-     * @return 重命名结果
-     */
-    @PutMapping("/rename/{id}")
-    @Operation(summary = "文件重命名")
-    public Result<?> rename(@PathVariable("id") @NotNull(message = "请输入文件id") Long id,
-                            @RequestParam(value = "name") @NotBlank(message = "请输入文件名") String name,
-                            @RequestParam(defaultValue = "PRIVATE") VisibilityEnum visibility) {
 
-        return fileServer.rename(id, name, visibility);
+    /**
+     * 获取文件的预览 url
+     *
+     * @param id 文件 ID
+     * @param visibility 能见度
+     * @return 预览 url
+     */
+    @GetMapping("preview-url/{id}")
+    @Operation(summary = "获取文件的预览URL")
+    public Result<?> previewUrl(@PathVariable("id") @NotNull(message = "请输入文件id") Long id,
+                                @RequestParam(defaultValue = "PRIVATE") VisibilityEnum visibility) {
+
+        return fileServer.previewUrl(id, visibility);
     }
 
-    // TODO 文件夹重命名
-
     /**
-     * 获取文件的下载URL
+     * 获取文件的下载 url
      *
-     * @param id 文件ID
+     * @param id 文件 ID
      * @param visibility 能见度
-     * @return 文件的下载URL
+     * @return 下载 url
      */
     @GetMapping("url/{id}")
     @Operation(summary = "获取文件的下载URL")
@@ -165,20 +179,6 @@ public class FileController {
         return fileServer.downloadFile(id, visibility);
     }
 
-    /**
-     * 获取文件的预览URL
-     *
-     * @param id 文件ID
-     * @param visibility 能见度
-     * @return 文件的预览URL
-     */
-    @GetMapping("preview-url/{id}")
-    @Operation(summary = "获取文件的预览URL")
-    public Result<?> previewUrl(@PathVariable("id") @NotNull(message = "请输入文件id") Long id,
-                                @RequestParam(defaultValue = "PRIVATE") VisibilityEnum visibility) {
-
-        return fileServer.previewUrl(id, visibility);
-    }
 
     /**
      * 获取指定文件夹下的文件及文件夹
@@ -197,25 +197,9 @@ public class FileController {
 
 
     /**
-     * 本地文件下载
-     *
-     * @param id 文件ID
-     * @param visibility 能见度
-     * @return 文件下载响应
-     */
-    @GetMapping("/localDownLoad/{id}")
-    @Operation(summary = "本地文件下载")
-    public ResponseEntity<?> localDownLoadFile(@PathVariable("id") @NotNull(message = "文件id不能为空") Long id,
-                                               @RequestParam(defaultValue = "PRIVATE") VisibilityEnum visibility) {
-
-        return fileServer.downloadLocalFile(id, visibility);
-
-    }
-
-    /**
      * 预览本地文件
      *
-     * @param id 文件ID
+     * @param id 文件 ID
      * @param visibility 能见度
      * @return 文件预览响应
      */
@@ -227,4 +211,17 @@ public class FileController {
         return fileServer.previewLocalFile(id, visibility);
     }
 
+    /**
+     * 下载本地文件
+     *
+     * @param id 文件 ID
+     * @param visibility 能见度
+     * @return 文件下载响应
+     */
+    @GetMapping("/downloadLocal/{id}/{visibility}")
+    @Operation(summary = "本地文件下载")
+    public ResponseEntity<?> DownLoadLocalFile(@PathVariable("id") @NotNull(message = "文件id不能为空") Long id,
+                                               @RequestParam(defaultValue = "PRIVATE") VisibilityEnum visibility) {
+        return fileServer.downloadLocalFile(id, visibility);
+    }
 }

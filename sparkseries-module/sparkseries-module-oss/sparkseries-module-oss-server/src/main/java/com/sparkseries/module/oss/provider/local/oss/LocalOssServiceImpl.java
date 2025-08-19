@@ -138,17 +138,17 @@ public class LocalOssServiceImpl implements OssService {
     /**
      * 创建文件夹
      *
-     * @param path 文件夹路径
+     * @param absolutePath 文件夹路径
      * @param visibility 文件夹能见度
      * @param userId 用户 ID
      * @return 创建是否成功
      */
     @Override
-    public boolean createFolder(String path, VisibilityEnum visibility, String userId) {
-        log.info("[创建文件夹操作] 开始创建文件夹: {}", path);
-        Path targetPath = getTargetPath(path, visibility, userId);
+    public boolean createFolder(String absolutePath, VisibilityEnum visibility, String userId) {
+        log.info("[创建文件夹操作] 开始创建文件夹: {}", absolutePath);
+        Path targetPath = getTargetPath(absolutePath, visibility, userId);
 
-        log.info("本地存储开始创建目录 - 路径: {}", path);
+        log.info("本地存储开始创建目录 - 路径: {}", absolutePath);
 
         try {
             log.debug("检查目录是否已存在");
@@ -166,7 +166,7 @@ public class LocalOssServiceImpl implements OssService {
         } catch (IOException e) {
 
             log.error("[创建文件夹操作] 创建文件夹失败: {}", e.getMessage(), e);
-            log.error("本地存储目录创建失败 - 路径: {}, 错误信息: {}", path, e.getMessage(), e);
+            log.error("本地存储目录创建失败 - 路径: {}, 错误信息: {}", absolutePath, e.getMessage(), e);
             throw new OssException("创建目录失败: " + e.getMessage());
         }
     }
@@ -279,7 +279,7 @@ public class LocalOssServiceImpl implements OssService {
      */
     @Override
     @Deprecated
-    public String downLoad(String absolutePath, String downloadFileName, VisibilityEnum visibility) {
+    public String downLoad(String absolutePath, VisibilityEnum visibility) {
         return "";
     }
 
@@ -291,7 +291,6 @@ public class LocalOssServiceImpl implements OssService {
      * @return 文件响应实体
      * @throws RuntimeException 如果文件处理或编码发生错误
      */
-    @Override
     public ResponseEntity<?> downLocalFile(FileMetadataEntity fileMetadataEntity, VisibilityEnum visibility, String userId) {
         log.info("[下载文件操作] 开始下载本地文件: {}", fileMetadataEntity.getFileName());
 
@@ -425,7 +424,6 @@ public class LocalOssServiceImpl implements OssService {
      * @param userId 用户 ID
      * @return 文件预览响应实体
      */
-    @Override
     public ResponseEntity<?> previewLocalFile(FileMetadataEntity fileMetadataEntity, VisibilityEnum visibility, String userId) {
 
         String path = fileMetadataEntity.getStoragePath();
@@ -457,7 +455,6 @@ public class LocalOssServiceImpl implements OssService {
      * @return 包含头像资源的ResponseEntity
      * @throws RuntimeException 如果文件处理发生错误
      */
-    @Override
     public ResponseEntity<?> previewLocalAvatar(String absolutePath) {
         try {
             Path filePath = Paths.get(avatarPath, absolutePath);
@@ -478,41 +475,40 @@ public class LocalOssServiceImpl implements OssService {
      * @return 移动是否成功
      */
     @Override
-    public boolean moveFile(String sourceAbsolutePath, String targetAbsolutePath) {
+    public boolean moveFile(String sourceAbsolutePath, String targetAbsolutePath,
+                            VisibilityEnum visibility, String userId) {
         log.info("[移动文件操作] 开始移动文件: {} -> {}", sourceAbsolutePath, targetAbsolutePath);
+        Path sourcePath = getTargetPath(sourceAbsolutePath, visibility, userId);
+        Path targetPath = getTargetPath(targetAbsolutePath, visibility, userId);
 
-        sourceAbsolutePath = basePath + sourceAbsolutePath;
-        targetAbsolutePath = basePath + targetAbsolutePath;
-        Path source = Paths.get(sourceAbsolutePath);
-        Path target = Paths.get(targetAbsolutePath);
         long startTime = System.currentTimeMillis();
-        log.info("本地存储开始文件移动操作 - 源路径: {}, 目标路径: {}", sourceAbsolutePath, targetAbsolutePath);
+        log.info("本地存储开始文件移动操作 - 源路径: {}, 目标路径: {}", sourcePath, targetPath);
 
         try {
             log.debug("验证源文件是否存在");
-            if (!Files.exists(source)) {
+            if (!Files.exists(sourcePath)) {
                 log.warn("文件移动失败，源文件不存在: {}", sourceAbsolutePath);
                 throw new OssException("该文件不存在无法移动");
             }
 
             // 获取文件信息用于日志记录
             long fileSize = 0;
-            boolean isDirectory = Files.isDirectory(source);
+            boolean isDirectory = Files.isDirectory(sourcePath);
             if (!isDirectory) {
                 try {
-                    fileSize = Files.size(source);
+                    fileSize = Files.size(sourcePath);
                 } catch (IOException e) {
                     log.debug("无法获取源文件大小: {}", e.getMessage());
                 }
             }
 
             // 检查目标文件是否已存在
-            if (Files.exists(target)) {
+            if (Files.exists(targetPath)) {
                 log.warn("目标位置已存在文件，将被覆盖: {}", targetAbsolutePath);
             }
 
             log.debug("确保目标目录存在");
-            Path targetParentDir = target.getParent();
+            Path targetParentDir = targetPath.getParent();
             if (targetParentDir != null && !Files.exists(targetParentDir)) {
                 Files.createDirectories(targetParentDir);
                 log.debug("创建目标目录: {}", targetParentDir);
@@ -521,7 +517,7 @@ public class LocalOssServiceImpl implements OssService {
             log.debug("执行文件移动操作");
             // 构建移动选项
             CopyOption[] options = new CopyOption[]{StandardCopyOption.REPLACE_EXISTING};
-            Files.move(source, target, options);
+            Files.move(sourcePath, targetPath, options);
 
             long duration = System.currentTimeMillis() - startTime;
             String fileType = isDirectory ? "目录" : "文件";

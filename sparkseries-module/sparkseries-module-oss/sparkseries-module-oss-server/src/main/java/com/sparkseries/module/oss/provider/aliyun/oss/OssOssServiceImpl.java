@@ -11,13 +11,11 @@ import com.sparkseries.module.oss.common.api.provider.service.OssService;
 import com.sparkseries.module.oss.common.exception.OssException;
 import com.sparkseries.module.oss.file.dao.FileMetadataMapper;
 import com.sparkseries.module.oss.file.dto.MultipartFileDTO;
-import com.sparkseries.module.oss.file.entity.FileMetadataEntity;
 import com.sparkseries.module.oss.file.vo.FileInfoVO;
 import com.sparkseries.module.oss.file.vo.FilesAndFoldersVO;
 import com.sparkseries.module.oss.file.vo.FolderInfoVO;
 import com.sparkseries.module.oss.provider.aliyun.pool.OssClientPool;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseEntity;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -113,14 +111,14 @@ public class OssOssServiceImpl implements OssService {
     /**
      * 在OSS中创建文件夹
      *
-     * @param path 要创建的文件夹的路径
+     * @param absolutePath 要创建的文件夹的路径
      * @param visibility 可见性
      * @param userId 用户ID
      * @return 如果文件夹创建成功，则返回true；否则返回false
      */
     @Override
-    public boolean createFolder(String path, VisibilityEnum visibility, String userId) {
-        log.info("[创建文件夹操作] 开始创建文件夹: {}", path);
+    public boolean createFolder(String absolutePath, VisibilityEnum visibility, String userId) {
+        log.info("[创建文件夹操作] 开始创建文件夹: {}", absolutePath);
         OSS client = null;
 
         try {
@@ -129,17 +127,17 @@ public class OssOssServiceImpl implements OssService {
             log.debug("[创建文件夹操作] 成功获取OSS客户端连接，开始检查文件夹是否存在");
 
             // 创建目录，实际上是上传一个大小为0的文件。
-            boolean exists = client.doesObjectExist(bucketName, path);
+            boolean exists = client.doesObjectExist(bucketName, absolutePath);
             if (exists) {
-                log.warn("[创建文件夹操作] 文件夹已存在: {}", path);
+                log.warn("[创建文件夹操作] 文件夹已存在: {}", absolutePath);
                 throw new OssException("文件夹已存在 创建失败");
             }
 
             log.debug("[创建文件夹操作] 文件夹不存在，开始创建文件夹");
-            PutObjectRequest putObjectRequest = new PutObjectRequest(bucketName, path,
+            PutObjectRequest putObjectRequest = new PutObjectRequest(bucketName, absolutePath,
                     new ByteArrayInputStream(new byte[0]));
             client.putObject(putObjectRequest);
-            log.info("[创建文件夹操作] 文件夹创建成功: {}", path);
+            log.info("[创建文件夹操作] 文件夹创建成功: {}", absolutePath);
 
             return true;
         } catch (OssException e) {
@@ -246,12 +244,11 @@ public class OssOssServiceImpl implements OssService {
      * 生成文件的下载URL
      *
      * @param absolutePath 文件的绝对路径
-     * @param downloadFileName 下载时显示的文件名
      * @param visibility
      * @return 生成的下载URL字符串
      */
     @Override
-    public String downLoad(String absolutePath, String downloadFileName, VisibilityEnum visibility) {
+    public String downLoad(String absolutePath, VisibilityEnum visibility) {
         log.info("[下载文件操作] 开始生成下载链接: {}, 下载文件名: {}", absolutePath,
                 downloadFileName);
         OSS client = null;
@@ -287,16 +284,52 @@ public class OssOssServiceImpl implements OssService {
     }
 
     /**
-     * 下载本地文件（此方法在OSS服务中不适用，返回null）
+     * 生成文件的预览URL
      *
-     * @param metadata 文件的元数据实体
-     * @param visibilityEnum 访问权限枚举
-     * @return 始终返回null
+     * @param absolutePath 文件的绝对路径
+     * @return 生成的预览URL字符串
      */
     @Override
-    @Deprecated
-    public ResponseEntity<?> downLocalFile(FileMetadataEntity metadata, VisibilityEnum visibilityEnum) {
-        return null;
+    public String previewFile(String absolutePath) {
+        log.info("[预览文件操作] 开始生成文件预览链接: {}", absolutePath);
+        OSS client = null;
+        log.info("尝试获取阿里云 OSS 文件 [{}] 的预览URL. 存储空间: [{}].",
+                absolutePath, bucketName);
+
+        try {
+            int expiryInSeconds = 300;
+            log.debug("[预览文件操作] 从连接池获取OSS客户端连接");
+            client = clientPool.getClient();
+            log.debug("[预览文件操作] 成功获取OSS客户端连接，开始生成预签名URL");
+            GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucketName,
+                    absolutePath, HttpMethod.GET);
+            Date expiration = new Date(System.currentTimeMillis() + expiryInSeconds * 1000);
+            request.setExpiration(expiration);
+            // 设置响应头，提示浏览器在线预览
+            ResponseHeaderOverrides headerOverrides = new ResponseHeaderOverrides();
+            // 设置 Content-Disposition 为 inline，提示浏览器在线预览
+            headerOverrides.setContentDisposition("inline");
+            request.setResponseHeaders(headerOverrides);
+            URL url = client.generatePresignedUrl(request);
+
+            log.info("成功为文件 '{}' 生成预签名 URL，有效期 {} 秒。", absolutePath, expiryInSeconds);
+            log.info("[预览文件操作] 成功生成预览链接: {}", url.toString());
+            return url.toString();
+
+        } catch (Exception e) {
+            log.error("[预览文件操作] 生成预览链接失败: {}", e.getMessage(), e);
+            throw new RuntimeException(e);
+        } finally {
+            if (client != null) {
+                log.debug("[预览文件操作] 归还OSS客户端连接到连接池");
+                clientPool.returnClient(client);
+            }
+        }
+    }
+
+    @Override
+    public StorageTypeEnum getStorageType() {
+        return StorageTypeEnum.OSS;
     }
 
     /**
@@ -374,70 +407,6 @@ public class OssOssServiceImpl implements OssService {
     }
 
     /**
-     * 生成文件的预览URL
-     *
-     * @param absolutePath 文件的绝对路径
-     * @return 生成的预览URL字符串
-     */
-    @Override
-    public String previewFile(String absolutePath) {
-        log.info("[预览文件操作] 开始生成文件预览链接: {}", absolutePath);
-        OSS client = null;
-        log.info("尝试获取阿里云 OSS 文件 [{}] 的预览URL. 存储空间: [{}].",
-                absolutePath, bucketName);
-
-        try {
-            int expiryInSeconds = 300;
-            log.debug("[预览文件操作] 从连接池获取OSS客户端连接");
-            client = clientPool.getClient();
-            log.debug("[预览文件操作] 成功获取OSS客户端连接，开始生成预签名URL");
-            GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucketName,
-                    absolutePath, HttpMethod.GET);
-            Date expiration = new Date(System.currentTimeMillis() + expiryInSeconds * 1000);
-            request.setExpiration(expiration);
-            // 设置响应头，提示浏览器在线预览
-            ResponseHeaderOverrides headerOverrides = new ResponseHeaderOverrides();
-            // 设置 Content-Disposition 为 inline，提示浏览器在线预览
-            headerOverrides.setContentDisposition("inline");
-            request.setResponseHeaders(headerOverrides);
-            URL url = client.generatePresignedUrl(request);
-
-            log.info("成功为文件 '{}' 生成预签名 URL，有效期 {} 秒。", absolutePath, expiryInSeconds);
-            log.info("[预览文件操作] 成功生成预览链接: {}", url.toString());
-            return url.toString();
-
-        } catch (Exception e) {
-            log.error("[预览文件操作] 生成预览链接失败: {}", e.getMessage(), e);
-            throw new RuntimeException(e);
-        } finally {
-            if (client != null) {
-                log.debug("[预览文件操作] 归还OSS客户端连接到连接池");
-                clientPool.returnClient(client);
-            }
-        }
-    }
-
-    /**
-     * 预览本地文件（此方法在OSS服务中不适用，返回null）
-     *
-     * @param metadata 文件的元数据实体
-     * @param visibility
-     * @param userId
-     * @return 始终返回null
-     */
-    @Override
-    @Deprecated
-    public ResponseEntity<?> previewLocalFile(FileMetadataEntity metadata, VisibilityEnum visibility, String userId) {
-        return null;
-    }
-
-    @Deprecated
-    @Override
-    public ResponseEntity<?> previewLocalAvatar(String ath) {
-        return null;
-    }
-
-    /**
      * 移动OSS中的文件
      *
      * @param sourceAbsolutePath 源文件的绝对路径
@@ -483,11 +452,6 @@ public class OssOssServiceImpl implements OssService {
                 clientPool.returnClient(client);
             }
         }
-    }
-
-    @Override
-    public StorageTypeEnum getStorageType() {
-        return StorageTypeEnum.OSS;
     }
 
     private boolean uploadSmallFile(OSS client, MultipartFileDTO file) {

@@ -167,7 +167,7 @@ public class AvatarServiceImpl implements AvatarService {
     }
 
     @Override
-    public ResponseEntity<?> previewLocalAvatar(Long userId) {
+    public ResponseEntity<?> getLocalAvatar(Long userId) {
 
         String absolutePath = avatarMapper.getAvatarPathByUserId(userId);
         return getCurrentStorageService().previewLocalAvatar(absolutePath);

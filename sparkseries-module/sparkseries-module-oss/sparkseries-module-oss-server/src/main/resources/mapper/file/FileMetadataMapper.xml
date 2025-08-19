@@ -12,8 +12,9 @@
     </insert>
 
     <insert id="insertFolder">
-        INSERT INTO folder_metadata (id, folder_name, absolute_path, last_update_date, storage_type)
-        VALUES (#{folder.id}, #{folder.folderName}, #{folder.absolutePath}, #{folder.lastUpdateDate},
+        INSERT INTO folder_metadata (id,user_id,folder_name, storage_path, absolute_path, last_update_date, storage_type)
+        VALUES (#{folder.id}, #{folder.},#{folder.folderName}, #{folder.storagePath}, #{folder.absolutePath},
+                #{folder.lastUpdateDate},
                 #{folder.storageType})
     </insert>
 
@@ -41,7 +42,7 @@
     <delete id="deleteFolderByPath">
         DELETE
         FROM folder_metadata
-        WHERE absolute_path like concat(#{path}, '%')
+        WHERE storage_path like concat(#{path}, '%')
           and storage_type = #{storageType}
     </delete>
 
@@ -109,7 +110,13 @@
     <select id="listFolderNameByPath" resultType="java.lang.String">
         select distinct folder_name
         FROM folder_metadata
-        WHERE absolute_path = #{absolute_path}
+        WHERE storage_path = #{storage_path}
+    </select>
+    <select id="isExistFolderByName" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM folder_metadata
+        WHERE folder_name = #{name}
+          and storage_path = #{path}
     </select>
 
 

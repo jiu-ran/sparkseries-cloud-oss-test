@@ -17,9 +17,9 @@ public class FileMetadataEntity {
 
     private Long id;
 
-    private String fileName;
-
     private Long userId;
+
+    private String fileName;
 
     private String fileType;
 

@@ -7,7 +7,6 @@ import com.sparkseries.module.oss.common.api.provider.service.OssService;
 import com.sparkseries.module.oss.common.exception.OssException;
 import com.sparkseries.module.oss.file.dao.FileMetadataMapper;
 import com.sparkseries.module.oss.file.dto.MultipartFileDTO;
-import com.sparkseries.module.oss.file.entity.FileMetadataEntity;
 import com.sparkseries.module.oss.file.vo.FileInfoVO;
 import com.sparkseries.module.oss.file.vo.FilesAndFoldersVO;
 import com.sparkseries.module.oss.file.vo.FolderInfoVO;
@@ -17,7 +16,6 @@ import io.minio.http.Method;
 import io.minio.messages.Item;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.net.URLCodec;
-import org.springframework.http.ResponseEntity;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -87,57 +85,6 @@ public class MinioOssServiceImpl implements OssService {
         }
     }
 
-
-    /**
-     * 上传小文件
-     *
-     * @param client Minio客户端
-     * @param fileInfo 文件信息
-     * @return 上传是否成功
-     */
-    private boolean uploadSmallFile(MinioClient client, MultipartFileDTO fileInfo) {
-        long startTime = System.currentTimeMillis();
-        try (InputStream inputStream = fileInfo.getInputStream()) {
-            log.debug("开始执行小文件上传操作: {}", fileInfo.getAbsolutePath());
-            client.putObject(PutObjectArgs.builder().bucket(bucketName).object(fileInfo.getAbsolutePath()).stream(inputStream, fileInfo.getSize(), -1).contentType(fileInfo.getType()).build());
-
-            long duration = System.currentTimeMillis() - startTime;
-            log.info("Minio 小文件上传成功: {}, 大小: {} bytes, 耗时: {} ms", fileInfo.getAbsolutePath(), fileInfo.getSize(), duration);
-            return true;
-        } catch (Exception e) {
-            long duration = System.currentTimeMillis() - startTime;
-            log.error("Minio 小文件上传失败: {}, 大小: {} bytes, 耗时: {} ms, 错误信息: {}", fileInfo.getAbsolutePath(), fileInfo.getSize(), duration, e.getMessage(), e);
-            throw new OssException("小文件上传失败: " + e.getMessage());
-        }
-    }
-
-    /**
-     * 上传大文件（分片上传）
-     *
-     * @param client Minio客户端
-     * @param fileInfo 文件信息
-     * @return 上传是否成功
-     */
-    private boolean uploadLargeFile(MinioClient client, MultipartFileDTO fileInfo) {
-        long startTime = System.currentTimeMillis();
-        try (InputStream inputStream = fileInfo.getInputStream()) {
-            // Minio会自动处理分片上传，设置合适的分片大小
-            long partSize = Math.max(5 * 1024 * 1024L, fileInfo.getSize() / 10000);
-            log.debug("开始执行大文件分片上传操作: {}, 计算分片大小: {} bytes", fileInfo.getAbsolutePath(), partSize);
-
-            client.putObject(PutObjectArgs.builder().bucket(bucketName).object(fileInfo.getAbsolutePath()).stream(inputStream, fileInfo.getSize(), partSize).contentType(fileInfo.getType()).build());
-
-            long duration = System.currentTimeMillis() - startTime;
-            log.info("Minio 大文件分片上传成功: {}, 大小: {} bytes, 分片大小: {} bytes, 耗时: {} ms", fileInfo.getAbsolutePath(), fileInfo.getSize(), partSize, duration);
-            return true;
-        } catch (Exception e) {
-            long duration = System.currentTimeMillis() - startTime;
-            log.error("Minio 大文件分片上传失败: {}, 大小: {} bytes, 耗时: {} ms, 错误信息: {}", fileInfo.getAbsolutePath(), fileInfo.getSize(), duration, e.getMessage(), e);
-            throw new OssException("大文件分片上传失败: " + e.getMessage());
-        }
-    }
-
-
     /**
      * 上传头像文件
      *
@@ -168,26 +115,26 @@ public class MinioOssServiceImpl implements OssService {
     /**
      * 在Minio中创建文件夹
      *
-     * @param path 文件夹路径
+     * @param absolutePath 文件夹路径
      * @param visibility 文件夹可见性
      * @param userId 用户ID
      * @return 创建是否成功
      */
     @Override
-    public boolean createFolder(String path, VisibilityEnum visibility, String userId) {
-        log.info("[创建文件夹操作] 开始创建文件夹: {}", path);
+    public boolean createFolder(String absolutePath, VisibilityEnum visibility, String userId) {
+        log.info("[创建文件夹操作] 开始创建文件夹: {}", absolutePath);
         MinioClient client = null;
         long startTime = System.currentTimeMillis();
         try {
             client = clientPool.getClient();
-            client.putObject(PutObjectArgs.builder().bucket(bucketName).object(path).stream(new ByteArrayInputStream(new byte[]{}), 0, -1).build());
+            client.putObject(PutObjectArgs.builder().bucket(bucketName).object(absolutePath).stream(new ByteArrayInputStream(new byte[]{}), 0, -1).build());
             long duration = System.currentTimeMillis() - startTime;
-            log.info("[创建文件夹操作] 文件夹创建成功: {}, 耗时: {} ms", path, duration);
+            log.info("[创建文件夹操作] 文件夹创建成功: {}, 耗时: {} ms", absolutePath, duration);
             return true;
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
-            log.error("[创建文件夹操作] 创建文件夹失败: {}, 耗时: {} ms, 错误: {}", path, duration, e.getMessage(), e);
-            throw new OssException("Minio 创建目录:" + path + "失败: " + e.getMessage());
+            log.error("[创建文件夹操作] 创建文件夹失败: {}, 耗时: {} ms, 错误: {}", absolutePath, duration, e.getMessage(), e);
+            throw new OssException("Minio 创建目录:" + absolutePath + "失败: " + e.getMessage());
         } finally {
             if (client != null) {
                 clientPool.returnClient(client);
@@ -281,12 +228,11 @@ public class MinioOssServiceImpl implements OssService {
      * 生成文件下载链接
      *
      * @param absolutePath 文件绝对路径
-     * @param downloadFileName 下载文件名
      * @param visibility
      * @return 下载链接
      */
     @Override
-    public String downLoad(String absolutePath, String downloadFileName, VisibilityEnum visibility) {
+    public String downLoad(String absolutePath, VisibilityEnum visibility) {
         MinioClient client = null;
         long startTime = System.currentTimeMillis();
         log.info("[下载文件操作] 开始获取下载链接 - 文件路径: {}, 下载文件名: {}", absolutePath, downloadFileName);
@@ -317,64 +263,6 @@ public class MinioOssServiceImpl implements OssService {
             }
         }
 
-    }
-
-    /**
-     * 下载本地文件（Minio服务不实现此方法）
-     */
-    @Override
-    @Deprecated
-    public ResponseEntity<?> downLocalFile(FileMetadataEntity metadata, VisibilityEnum visibilityEnum) {
-        // 本地文件下载逻辑，Minio服务不实现
-        return null;
-    }
-
-    /**
-     * 重命名Minio中的文件
-     *
-     * @param id 文件ID (在Minio中通常不直接使用，但可能用于构建新文件名)
-     * @param oldFilename 旧文件名
-     * @param newFilename 新文件名
-     * @param path 文件所在路径
-     * @return 重命名是否成功
-     */
-    @Override
-    public boolean rename(Long id, String oldFilename, String newFilename, String path) {
-        // Minio没有直接的重命名操作，通过复制到新名称再删除旧名称实现
-        // 注意：这里使用id和newFilename构建新的objectName，
-        // 这意味着重命名会改变文件的实际存储路径，如果只是想改变显示名称，
-        // 应该更新元数据而不是移动文件。
-        // 但根据当前实现，是进行文件移动。
-        MinioClient client = null;
-        String sourceAbsolutePath = path + oldFilename;
-        String targetAbsolutePath = path + id + newFilename;
-        long startTime = System.currentTimeMillis();
-        log.info("[重命名文件操作] 开始重命名文件 - 原路径: {}, 新路径: {}", sourceAbsolutePath, targetAbsolutePath);
-        try {
-            client = clientPool.getClient();
-            CopySource source = CopySource.builder().bucket(bucketName).object(sourceAbsolutePath).build();
-            Map<String, String> metadata = new HashMap<>(1);
-            metadata.put("original-filename", newFilename);
-            // 构建复制目标信息
-            CopyObjectArgs copyArgs = CopyObjectArgs.builder().bucket(bucketName).object(targetAbsolutePath).source(source).userMetadata(metadata).build();
-
-            log.debug("[重命名文件操作] 开始复制对象 - 从 {} 到 {}", sourceAbsolutePath, targetAbsolutePath);
-            client.copyObject(copyArgs);
-            log.debug("[重命名文件操作] 复制对象成功，开始删除原文件: {}", sourceAbsolutePath);
-            deleteFile(sourceAbsolutePath);
-
-            long duration = System.currentTimeMillis() - startTime;
-            log.info("[重命名文件操作] 文件重命名完成 - 原路径: {}, 新路径: {}, 耗时: {} ms", sourceAbsolutePath, targetAbsolutePath, duration);
-            return true;
-        } catch (Exception e) {
-            long duration = System.currentTimeMillis() - startTime;
-            log.error("[重命名文件操作] 文件重命名失败 - 原路径: {}, 新路径: {}, 耗时: {} ms, 错误: {}", sourceAbsolutePath, targetAbsolutePath, duration, e.getMessage(), e);
-            throw new OssException("Minio 文件:" + sourceAbsolutePath + "重命名失败: " + e.getMessage());
-        } finally {
-            if (client != null) {
-                clientPool.returnClient(client);
-            }
-        }
     }
 
     /**
@@ -428,30 +316,110 @@ public class MinioOssServiceImpl implements OssService {
     }
 
     /**
-     * 预览本地文件（此方法已废弃，不实现）
+     * 获取当前存储类型
      *
-     * @param metadata 文件元数据
-     * @param visibility
-     * @param userId
-     * @return 始终返回null
+     * @return 存储类型枚举值（MINIO）
      */
     @Override
-    @Deprecated
-    public ResponseEntity<?> previewLocalFile(FileMetadataEntity metadata, VisibilityEnum visibility, String userId) {
-        // 本地文件预览逻辑，Minio服务不实现
-        return null;
+    public StorageTypeEnum getStorageType() {
+        return MINIO;
     }
 
     /**
-     * 预览本地头像（此方法已废弃，不实现）
+     * 上传小文件
      *
-     * @param ath 头像路径
-     * @return 始终返回null
+     * @param client Minio客户端
+     * @param fileInfo 文件信息
+     * @return 上传是否成功
      */
-    @Deprecated
+    private boolean uploadSmallFile(MinioClient client, MultipartFileDTO fileInfo) {
+        long startTime = System.currentTimeMillis();
+        try (InputStream inputStream = fileInfo.getInputStream()) {
+            log.debug("开始执行小文件上传操作: {}", fileInfo.getAbsolutePath());
+            client.putObject(PutObjectArgs.builder().bucket(bucketName).object(fileInfo.getAbsolutePath()).stream(inputStream, fileInfo.getSize(), -1).contentType(fileInfo.getType()).build());
+
+            long duration = System.currentTimeMillis() - startTime;
+            log.info("Minio 小文件上传成功: {}, 大小: {} bytes, 耗时: {} ms", fileInfo.getAbsolutePath(), fileInfo.getSize(), duration);
+            return true;
+        } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            log.error("Minio 小文件上传失败: {}, 大小: {} bytes, 耗时: {} ms, 错误信息: {}", fileInfo.getAbsolutePath(), fileInfo.getSize(), duration, e.getMessage(), e);
+            throw new OssException("小文件上传失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 上传大文件（分片上传）
+     *
+     * @param client Minio客户端
+     * @param fileInfo 文件信息
+     * @return 上传是否成功
+     */
+    private boolean uploadLargeFile(MinioClient client, MultipartFileDTO fileInfo) {
+        long startTime = System.currentTimeMillis();
+        try (InputStream inputStream = fileInfo.getInputStream()) {
+            // Minio会自动处理分片上传，设置合适的分片大小
+            long partSize = Math.max(5 * 1024 * 1024L, fileInfo.getSize() / 10000);
+            log.debug("开始执行大文件分片上传操作: {}, 计算分片大小: {} bytes", fileInfo.getAbsolutePath(), partSize);
+
+            client.putObject(PutObjectArgs.builder().bucket(bucketName).object(fileInfo.getAbsolutePath()).stream(inputStream, fileInfo.getSize(), partSize).contentType(fileInfo.getType()).build());
+
+            long duration = System.currentTimeMillis() - startTime;
+            log.info("Minio 大文件分片上传成功: {}, 大小: {} bytes, 分片大小: {} bytes, 耗时: {} ms", fileInfo.getAbsolutePath(), fileInfo.getSize(), partSize, duration);
+            return true;
+        } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            log.error("Minio 大文件分片上传失败: {}, 大小: {} bytes, 耗时: {} ms, 错误信息: {}", fileInfo.getAbsolutePath(), fileInfo.getSize(), duration, e.getMessage(), e);
+            throw new OssException("大文件分片上传失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 重命名Minio中的文件
+     *
+     * @param id 文件ID (在Minio中通常不直接使用，但可能用于构建新文件名)
+     * @param oldFilename 旧文件名
+     * @param newFilename 新文件名
+     * @param path 文件所在路径
+     * @return 重命名是否成功
+     */
     @Override
-    public ResponseEntity<?> previewLocalAvatar(String ath) {
-        return null;
+    public boolean rename(Long id, String oldFilename, String newFilename, String path) {
+        // Minio没有直接的重命名操作，通过复制到新名称再删除旧名称实现
+        // 注意：这里使用id和newFilename构建新的objectName，
+        // 这意味着重命名会改变文件的实际存储路径，如果只是想改变显示名称，
+        // 应该更新元数据而不是移动文件。
+        // 但根据当前实现，是进行文件移动。
+        MinioClient client = null;
+        String sourceAbsolutePath = path + oldFilename;
+        String targetAbsolutePath = path + id + newFilename;
+        long startTime = System.currentTimeMillis();
+        log.info("[重命名文件操作] 开始重命名文件 - 原路径: {}, 新路径: {}", sourceAbsolutePath, targetAbsolutePath);
+        try {
+            client = clientPool.getClient();
+            CopySource source = CopySource.builder().bucket(bucketName).object(sourceAbsolutePath).build();
+            Map<String, String> metadata = new HashMap<>(1);
+            metadata.put("original-filename", newFilename);
+            // 构建复制目标信息
+            CopyObjectArgs copyArgs = CopyObjectArgs.builder().bucket(bucketName).object(targetAbsolutePath).source(source).userMetadata(metadata).build();
+
+            log.debug("[重命名文件操作] 开始复制对象 - 从 {} 到 {}", sourceAbsolutePath, targetAbsolutePath);
+            client.copyObject(copyArgs);
+            log.debug("[重命名文件操作] 复制对象成功，开始删除原文件: {}", sourceAbsolutePath);
+            deleteFile(sourceAbsolutePath);
+
+            long duration = System.currentTimeMillis() - startTime;
+            log.info("[重命名文件操作] 文件重命名完成 - 原路径: {}, 新路径: {}, 耗时: {} ms", sourceAbsolutePath, targetAbsolutePath, duration);
+            return true;
+        } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            log.error("[重命名文件操作] 文件重命名失败 - 原路径: {}, 新路径: {}, 耗时: {} ms, 错误: {}", sourceAbsolutePath, targetAbsolutePath, duration, e.getMessage(), e);
+            throw new OssException("Minio 文件:" + sourceAbsolutePath + "重命名失败: " + e.getMessage());
+        } finally {
+            if (client != null) {
+                clientPool.returnClient(client);
+            }
+        }
     }
 
     /**
@@ -496,15 +464,5 @@ public class MinioOssServiceImpl implements OssService {
                 clientPool.returnClient(client);
             }
         }
-    }
-
-    /**
-     * 获取当前存储类型
-     *
-     * @return 存储类型枚举值（MINIO）
-     */
-    @Override
-    public StorageTypeEnum getStorageType() {
-        return MINIO;
     }
 }

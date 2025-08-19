@@ -88,7 +88,7 @@ public class AvatarController {
      */
     @GetMapping("local/{userId}")
     @Operation(summary = "预览本地文件")
-    public ResponseEntity<?> previewLocalFile(@PathVariable("userId") @NotNull(message = "用户id不能为空") Long userId) {
-        return avatarService.previewLocalAvatar(userId);
+    public ResponseEntity<?> getLocalFile(@PathVariable("userId") @NotNull(message = "用户id不能为空") Long userId) {
+        return avatarService.getLocalAvatar(userId);
     }
 }
