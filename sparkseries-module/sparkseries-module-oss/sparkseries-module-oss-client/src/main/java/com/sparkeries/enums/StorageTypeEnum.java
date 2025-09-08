@@ -17,7 +17,7 @@ public enum StorageTypeEnum {
     /**
      * 阿里云
      */
-    OSS("base", 1),
+    OSS("oss", 1),
 
     /**
      * 腾讯云

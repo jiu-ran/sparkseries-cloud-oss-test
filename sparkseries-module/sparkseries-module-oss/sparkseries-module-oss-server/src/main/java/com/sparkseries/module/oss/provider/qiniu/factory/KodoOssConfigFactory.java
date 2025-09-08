@@ -30,7 +30,10 @@ public class KodoOssConfigFactory implements OssConfigFactory {
                 id,
                 config.getKodoAccessKey(),
                 config.getKodoSecretKey(),
-                config.getKodoBucketName()
+                config.getKodoPublicBucketName(),
+                config.getKodoPrivateBucketName(),
+                config.getKodoUserInfoBucketName()
+
         );
         return cloudMapper.insertKodoConfig(kodoConfigEntity);
     }

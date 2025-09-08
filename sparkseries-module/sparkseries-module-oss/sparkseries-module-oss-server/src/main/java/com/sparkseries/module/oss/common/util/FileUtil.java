@@ -12,7 +12,7 @@ import java.util.stream.Collectors;
  * 文件名和路径校验工具类
  */
 @Slf4j
-public class FileUtils {
+public class FileUtil {
 
     /**
      * 定义非法字符正则表达式：\ / : * ? " < > |
@@ -170,7 +170,7 @@ public class FileUtils {
      * @param path 原始路径
      * @return 规范化后的路径
      */
-    public static String normalizePath(String path) {
+    public static String normalizeFolderPath(String path) {
         if (path == null || path.isEmpty()) {
             return "";
         }
@@ -241,7 +241,13 @@ public class FileUtils {
         if (lastDotIndex == -1) {
             return "";
         }
-        return fileName.substring(lastDotIndex + 1);
+
+        String suffix = fileName.substring(lastDotIndex + 1);
+        if (suffix.startsWith(".")) {
+            return suffix;
+        } else {
+            return "." + suffix;
+        }
     }
 
     /**
@@ -275,9 +281,10 @@ public class FileUtils {
      * @param path 路径
      * @return 规范化的路径
      */
-    public static String normalizeAndValidatePath(String path) {
-        String normalized = normalizePath(path);
+    public static String normalizeAndValidateFolderPath(String path) {
+        String normalized = normalizeFolderPath(path);
         isValidPath(normalized);
         return normalized;
     }
+
 }

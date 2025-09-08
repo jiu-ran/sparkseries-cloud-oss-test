@@ -15,5 +15,7 @@ public class MinioConfigEntity {
 	public String endpoint;
 	public String accessKey;
 	public String secretKey;
-	public String bucketName;
+    public String publicBucketName;
+    public String privateBucketName;
+    public String userInfoBucketName;
 }

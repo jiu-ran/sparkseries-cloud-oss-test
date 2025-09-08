@@ -30,7 +30,9 @@ public class CosOssConfigFactory implements OssConfigFactory {
                 id,
                 config.getCosSecretId(),
                 config.getCosSecretKey(),
-                config.getCosBucketName(),
+                config.getCosPublicBucketName(),
+                config.getCosPrivateBucketName(),
+                config.getCosUserInfoBucketName(),
                 config.getCosRegion()
         );
         return cloudMapper.insertCosConfig(cosConfigEntity);

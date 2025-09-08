@@ -1,7 +1,7 @@
 Local:
   avatarPath: ./Folder/avatar
   publicPath: ./Folder/public
-  userPath: ./Folder/user
+  privatePath: ./Folder/private
 
 pool:
   config:

@@ -6,26 +6,33 @@
 <mapper namespace="com.sparkseries.module.oss.cloud.dao.CloudConfigMapper">
 
     <insert id="insertOssConfig">
-        insert into oss_config(id, endpoint, access_key_id, access_key_secret, bucket_name, region, status)
-        values (#{ossConfigEntity.id}, #{ossConfigEntity.endpoint}, #{ossConfigEntity.accessKeyId}, #{ossConfigEntity.accessKeySecret},
-                #{ossConfigEntity.bucketName}, #{ossConfigEntity.region}, 1)
+        insert into oss_config(id, endpoint, access_key_id, access_key_secret, public_bucket_name,
+                               private_bucket_name, user_info_bucket_name, region, status)
+        values (#{ossConfigEntity.id}, #{ossConfigEntity.endpoint}, #{ossConfigEntity.accessKeyId},
+                #{ossConfigEntity.accessKeySecret},
+                #{ossConfigEntity.publicBucketName}, #{ossConfigEntity.privateBucketName},
+                #{ossConfigEntity.userInfoBucketName}, #{ossConfigEntity.region}, 1)
     </insert>
 
     <insert id="insertCosConfig">
-        insert into cos_config(id, secret_id, secret_key, bucket_name, region, status)
-        values (#{cosConfigEntity.id}, #{cosConfigEntity.secretId}, #{cosConfigEntity.secretKey}, #{cosConfigEntity.bucketName},
+        insert into cos_config(id, secret_id, secret_key, public_bucket_name, private_bucket_name,
+                               user_info_bucket_name, region, status)
+        values (#{cosConfigEntity.id}, #{cosConfigEntity.secretId}, #{cosConfigEntity.secretKey},
+                #{cosConfigEntity.publicBucketName},
+                #{cosConfigEntity.privateBucketName}, #{cosConfigEntity.userInfoBucketName},
                 #{cosConfigEntity.region}, 1)
     </insert>
 
     <insert id="insertKodoConfig">
-        insert into kodo_config(id, access_key, secret_key, bucket_name, status)
-        values (#{kodoConfigEntity.id}, #{kodoConfigEntity.accessKey}, #{kodoConfigEntity.secretKey}, #{kodoConfigEntity.bucketName}, 1)
+        insert into kodo_config(id, access_key, secret_key, public_bucket_name, private_bucket_name,user_info_bucket_name, status)
+        values (#{kodoConfigEntity.id}, #{kodoConfigEntity.accessKey}, #{kodoConfigEntity.secretKey},
+                #{kodoConfigEntity.publicBucketName}, #{kodoConfigEntity.privateBucketName},#{kodoConfigEntity.userInfoBucketName}, 1)
     </insert>
 
     <insert id="insertMinioConfig">
-        insert into minio_config(id, endpoint, access_key, secret_key, bucket_name, status)
+        insert into minio_config(id, endpoint, access_key, secret_key, public_bucket_name, private_bucket_name, user_info_bucket_name, status)
         values (#{minioConfigEntity.id}, #{minioConfigEntity.endpoint}, #{minioConfigEntity.accessKey}, #{minioConfigEntity.secretKey},
-                #{minioConfigEntity.bucketName}, 1)
+                #{minioConfigEntity.publicBucketName}, #{minioConfigEntity.privateBucketName}, #{minioConfigEntity.userInfoBucketName}, 1)
     </insert>
 
 

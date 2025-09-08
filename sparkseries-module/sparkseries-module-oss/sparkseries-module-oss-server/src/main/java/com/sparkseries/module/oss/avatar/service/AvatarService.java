@@ -1,7 +1,7 @@
 package com.sparkseries.module.oss.avatar.service;
 
-import com.sparkseries.module.oss.file.dto.MultipartFileDTO;
 import com.sparkseries.common.util.entity.Result;
+import com.sparkseries.module.oss.file.dto.MultipartFileDTO;
 import org.springframework.http.ResponseEntity;
 
 /**
@@ -13,10 +13,9 @@ public interface AvatarService {
      * 上传用户头像
      *
      * @param avatar 头像信息
-     * @param userId 用户 ID
      * @return 上传结果信息
      */
-    Result<String> uploadAvatar(MultipartFileDTO avatar, Long userId);
+    Result<String> uploadAvatar(MultipartFileDTO avatar);
 
     /**
      * 更新用户头像

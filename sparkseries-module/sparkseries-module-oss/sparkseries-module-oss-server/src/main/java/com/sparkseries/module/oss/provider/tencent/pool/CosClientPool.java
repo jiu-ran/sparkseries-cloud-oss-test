@@ -15,7 +15,7 @@ public class CosClientPool {
     private final GenericObjectPool<COSClient> pool;
 
     public CosClientPool(String secretId, String secretKey,
-                         String region, String bucketName, PoolConfig poolConfig) {
+                         String region,PoolConfig poolConfig) {
 
         GenericObjectPoolConfig<COSClient> config = new GenericObjectPoolConfig<>();
         config.setMaxTotal(poolConfig.getMaxTotal());
@@ -25,8 +25,7 @@ public class CosClientPool {
         config.setTestOnReturn(poolConfig.isTestOnReturn());
         // 创建对象池
         this.pool = new GenericObjectPool<>(
-                new CosClientFactory(secretId, secretKey, region, bucketName),
-                config
+                new CosClientFactory(secretId, secretKey, region), config
         );
     }
 
@@ -42,8 +41,4 @@ public class CosClientPool {
         }
     }
 
-
-    public void close() {
-        pool.close();
-    }
 }

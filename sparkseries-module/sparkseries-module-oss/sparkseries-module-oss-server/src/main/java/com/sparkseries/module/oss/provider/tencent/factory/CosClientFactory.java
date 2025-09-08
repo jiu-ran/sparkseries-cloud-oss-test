@@ -6,7 +6,6 @@ import com.qcloud.cos.auth.BasicCOSCredentials;
 import com.qcloud.cos.auth.COSCredentials;
 import com.qcloud.cos.http.HttpProtocol;
 import com.qcloud.cos.region.Region;
-import com.sparkseries.module.oss.common.exception.OssException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.pool2.BasePooledObjectFactory;
 import org.apache.commons.pool2.PooledObject;
@@ -21,13 +20,11 @@ public class CosClientFactory extends BasePooledObjectFactory<COSClient> {
     private final String secretId;
     private final String secretKey;
     private final String region;
-    private final String bucketName;
 
-    public CosClientFactory(String secretId, String secretKey, String region, String bucketName) {
+    public CosClientFactory(String secretId, String secretKey, String region) {
         this.secretId = secretId;
         this.secretKey = secretKey;
         this.region = region;
-        this.bucketName = bucketName;
     }
 
     @Override
@@ -47,14 +44,6 @@ public class CosClientFactory extends BasePooledObjectFactory<COSClient> {
     }
 
     /**
-     * 包装对象
-     */
-    @Override
-    public PooledObject<COSClient> wrap(COSClient client) {
-        return new DefaultPooledObject<>(client);
-    }
-
-    /**
      * 销毁对象
      */
     @Override
@@ -63,17 +52,10 @@ public class CosClientFactory extends BasePooledObjectFactory<COSClient> {
     }
 
     /**
-     * 验证对象是否有效
+     * 包装对象
      */
     @Override
-    public boolean validateObject(PooledObject<COSClient> p) {
-        try {
-            // 简单验证客户端是否有效
-            COSClient client = p.getObject();
-            client.getBucketLocation(bucketName); // 测试请求
-            return true;
-        } catch (Exception e) {
-            throw new OssException("COS客户端连接失败");
-        }
+    public PooledObject<COSClient> wrap(COSClient client) {
+        return new DefaultPooledObject<>(client);
     }
 }

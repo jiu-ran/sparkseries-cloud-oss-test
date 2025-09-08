@@ -4,7 +4,6 @@ import com.sparkeries.enums.StorageTypeEnum;
 import com.sparkseries.module.oss.cloud.dao.CloudConfigMapper;
 import com.sparkseries.module.oss.cloud.dto.CloudConfigDTO;
 import com.sparkseries.module.oss.cloud.entity.MinioConfigEntity;
-
 import com.sparkseries.module.oss.common.api.provider.factory.OssConfigFactory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -17,22 +16,24 @@ import java.util.List;
 @Component
 @RequiredArgsConstructor
 public class MinioOssConfigFactory implements OssConfigFactory {
-    
+
     private final CloudConfigMapper cloudMapper;
-    
+
     @Override
     public StorageTypeEnum getStorageType() {
         return StorageTypeEnum.MINIO;
     }
-    
+
     @Override
     public Integer saveConfig(CloudConfigDTO config, Long id) {
         MinioConfigEntity minioConfigEntity = new MinioConfigEntity(
-            id, 
-            config.getMinioEndPoint(),
-            config.getMinioAccessKey(),
-            config.getMinioSecretKey(), 
-            config.getMinioBucketName()
+                id,
+                config.getMinioEndPoint(),
+                config.getMinioAccessKey(),
+                config.getMinioSecretKey(),
+                config.getMinioPublicBucketName(),
+                config.getMinioPrivateBucketName(),
+                config.getMinioUserInfoBucketName()
         );
         return cloudMapper.insertMinioConfig(minioConfigEntity);
     }

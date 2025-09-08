@@ -6,23 +6,22 @@
 <mapper namespace="com.sparkseries.module.oss.avatar.dao.AvatarMapper">
 
     <insert id="insertAvatar">
-        insert into sys_user_avatar(id, user_id, avatar_path, size, storage_type)
-        values (#{avatar.id}, #{avatar.userId}, #{avatar.absolutePath}, #{avatar.size},
-            #{avatar.storageType})
+        insert into user_avatar_metadata(user_id,suffix_name, folder_path, size, storage_type)
+        values (#{avatar.userId},#{avatar.suffixName},#{avatar.folderPath},#{avatar.size},#{avatar.storageType})
     </insert>
 
     <update id="updateAvatar">
-        update sys_user_avatar
-        set avatar_path = #{avatar.absolutePath},
-            size = #{avatar.size},
-            storage_type = #{avatar.storageType}
+        update user_avatar_metadata
+        set suffix_name = #{avatar.suffixName}
+            and size = #{avatar.size}
         where user_id = #{avatar.userId}
     </update>
 
-    <select id="getAvatarPathByUserId" resultType="java.lang.String">
-        select avatar_path
-        from sys_user_avatar
+    <select id="getAvatarByUserId" resultType="com.sparkseries.module.oss.avatar.entity.AvatarEntity">
+        select *
+        from user_avatar_metadata
         where user_id = #{userId}
+          and storage_type = #{storageType}
     </select>
 
 </mapper>

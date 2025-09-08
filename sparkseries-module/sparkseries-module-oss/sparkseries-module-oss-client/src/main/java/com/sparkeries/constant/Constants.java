@@ -9,9 +9,9 @@ import java.util.List;
 public class Constants {
 
     /**
-     * 头像路径前缀
+     * 用户头像存储路径
      */
-    public final static String AVATAR_PATH_PREFIX = "avatar/";
+    public final static String AVATAR_STORAGE_PATH = "avatar/";
 
     /**
      * 头像最大大小 10MB

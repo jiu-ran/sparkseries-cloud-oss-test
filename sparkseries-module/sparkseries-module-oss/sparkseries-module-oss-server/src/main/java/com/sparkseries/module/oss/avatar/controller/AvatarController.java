@@ -1,6 +1,7 @@
 package com.sparkseries.module.oss.avatar.controller;
 
 
+import com.sparkseries.common.security.util.CurrentUser;
 import com.sparkseries.common.util.entity.Result;
 import com.sparkseries.module.oss.avatar.service.AvatarService;
 import com.sparkseries.module.oss.file.dto.MultipartFileDTO;
@@ -42,8 +43,14 @@ public class AvatarController {
         try {
             Tika tika = new Tika();
             String type = tika.detect(avatar.getInputStream(), avatar.getContentType());
-            MultipartFileDTO file = new MultipartFileDTO(avatar.getOriginalFilename(), avatar.getInputStream(), avatar.getSize(), type);
-            return avatarService.uploadAvatar(file, userId);
+            MultipartFileDTO avatarDTO = MultipartFileDTO.builder()
+                    .fileName(avatar.getOriginalFilename())
+                    .userId(userId)
+                    .inputStream(avatar.getInputStream())
+                    .size(avatar.getSize())
+                    .type(type)
+                    .build();
+            return avatarService.uploadAvatar(avatarDTO);
         } catch (IOException e) {
             return Result.error("上传文件失败");
         }
@@ -59,9 +66,16 @@ public class AvatarController {
     @Operation(summary = "修改头像")
     public Result<?> updateAvatar(@RequestParam("file") @NotNull(message = "请指定上传头像") MultipartFile avatar) {
         try {
+            Long userId = CurrentUser.getId();
             Tika tika = new Tika();
             String type = tika.detect(avatar.getInputStream(), avatar.getContentType());
-            MultipartFileDTO file = new MultipartFileDTO(avatar.getOriginalFilename(), avatar.getInputStream(), avatar.getSize(), type);
+            MultipartFileDTO file = MultipartFileDTO.builder()
+                    .fileName(avatar.getOriginalFilename())
+                    .userId(userId)
+                    .inputStream(avatar.getInputStream())
+                    .size(avatar.getSize())
+                    .type(type)
+                    .build();
             return avatarService.updateAvatar(file);
         } catch (IOException e) {
             return Result.error("上传文件失败");

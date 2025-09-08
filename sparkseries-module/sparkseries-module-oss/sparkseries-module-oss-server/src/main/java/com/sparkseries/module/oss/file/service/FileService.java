@@ -16,21 +16,21 @@ public interface FileService {
      * 文件列表上传
      *
      * @param files 待上传的文件列表
-     * @param path 文件存储的文件夹路径
+     * @param folderPath 文件存储的文件夹路径
      * @param visibility 能见度
      * @return 上传结果
      */
-    Result<?> uploadFiles(List<MultipartFileDTO> files, String path, VisibilityEnum visibility);
+    Result<?> uploadFiles(List<MultipartFileDTO> files, String folderPath, VisibilityEnum visibility);
 
     /**
      * 创建文件夹
      *
-     * @param path 文件夹路径
      * @param folderName 文件夹名
+     * @param folderPath 文件夹路径
      * @param visibility 能见度
      * @return 创建文件夹结果
      */
-    Result<?> createFolder(String path, String folderName, VisibilityEnum visibility);
+    Result<?> createFolder(String folderName, String folderPath, VisibilityEnum visibility);
 
     /**
      * 删除文件
@@ -44,40 +44,33 @@ public interface FileService {
     /**
      * 删除文件夹及文件夹下的文件
      *
-     * @param path 文件夹路径
+     * @param folderName 文件夹名
+     * @param folderPath 文件夹路径
      * @param visibility 能见度
      * @return 删除结果
      */
-    Result<?> deleteFolder(String path, VisibilityEnum visibility);
-
-    /**
-     * 文件重命名
-     *
-     * @param id 文件 ID
-     * @param name 新名称
-     * @param visibility 能见度
-     * @return 重命名结果
-     */
-    Result<?> rename(Long id, String name, VisibilityEnum visibility);
+    Result<?> deleteFolder(String folderName, String folderPath, VisibilityEnum visibility);
 
     /**
      * 移动文件
      *
      * @param id 文件 ID
-     * @param path 目标文件夹路径
+     * @param folderName 目标文件夹名
+     * @param folderPath 目标文件夹路径
      * @param visibility 能见度
      * @return 移动结果
      */
-    Result<?> moveFile(Long id, String path, VisibilityEnum visibility);
+    Result<?> moveFile(Long id, String folderName, String folderPath, VisibilityEnum visibility);
 
     /**
      * 列出指定路径下的文件和文件夹
      *
-     * @param path 文件夹路径
+     * @param folderName 文件夹名
+     * @param folderPath 文件夹路径
      * @param visibility 能见度
      * @return 文件和文件夹列表
      */
-    Result<?> listFiles(String path, VisibilityEnum visibility);
+    Result<?> listFileAndFolder(String folderName, String folderPath, VisibilityEnum visibility);
 
     /**
      * 获取文件的预览 url

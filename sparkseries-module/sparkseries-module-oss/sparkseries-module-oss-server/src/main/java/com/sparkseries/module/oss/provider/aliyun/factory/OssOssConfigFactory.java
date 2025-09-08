@@ -31,7 +31,9 @@ public class OssOssConfigFactory implements OssConfigFactory {
                 config.getOssEndPoint(),
                 config.getOssAccessKeyId(),
                 config.getOssAccessKeySecret(),
-                config.getOssBucketName(),
+                config.getOssPublicBucketName(),
+                config.getOssPrivateBucketName(),
+                config.getOssUserInfoBucketName(),
                 config.getOssRegion()
         );
         return cloudMapper.insertOssConfig(ossConfigEntity);

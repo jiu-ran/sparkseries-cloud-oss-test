@@ -36,19 +36,20 @@ public class CosValidConnectServiceImpl implements ValidConnectService {
 
         String secretId = config.getCosSecretId();
         String secretKey = config.getCosSecretKey();
-        String bucketName = config.getCosBucketName();
-        String region = config.getCosRegion();
 
-        return connectTest(secretId, secretKey, bucketName, region);
+        String region = config.getCosRegion();
+        return connectTest(secretId, secretKey, config.getCosPublicBucketName(), region)
+                && connectTest(secretId, secretKey, config.getCosPrivateBucketName(), region)
+                && connectTest(secretId, secretKey, config.getCosUserInfoBucketName(), region);
     }
 
     /**
      * COS 测试连接
      *
-     * @param secretId   COS的SecretId
-     * @param secretKey  COS的SecretKey
+     * @param secretId COS的SecretId
+     * @param secretKey COS的SecretKey
      * @param bucketName COS的bucketName
-     * @param region     COS的region
+     * @param region COS的region
      * @return 测试结果
      */
     public boolean connectTest(String secretId, String secretKey, String bucketName, String region) {

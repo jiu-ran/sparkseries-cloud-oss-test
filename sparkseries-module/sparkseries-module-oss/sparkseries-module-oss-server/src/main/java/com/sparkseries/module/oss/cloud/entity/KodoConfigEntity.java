@@ -14,5 +14,7 @@ public class KodoConfigEntity {
 	public long id;
 	public String accessKey;
 	public String secretKey;
-	public String bucketName;
+    public String publicBucketName;
+    public String privateBucketName;
+    public String userInfoBucketName;
 }

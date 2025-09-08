@@ -15,6 +15,8 @@ public class OssConfigEntity {
     public String endpoint;
     public String accessKeyId;
     public String accessKeySecret;
-    public String bucketName;
+    public String publicBucketName;
+    public String privateBucketName;
+    public String userInfoBucketName;
     public String region;
 }

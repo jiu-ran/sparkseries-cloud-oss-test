@@ -1,6 +1,7 @@
 package com.sparkseries.module.oss.file.entity;
 
 import com.sparkeries.enums.StorageTypeEnum;
+import com.sparkeries.enums.VisibilityEnum;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -18,12 +19,12 @@ public class FolderMetadataEntity {
 
     private String folderName;
 
-    private String storagePath;
-
-    private String absolutePath;
+    private String folderPath;
 
     private LocalDateTime lastUpdateDate;
 
     private StorageTypeEnum storageType;
+
+    private VisibilityEnum visibility;
 
 }

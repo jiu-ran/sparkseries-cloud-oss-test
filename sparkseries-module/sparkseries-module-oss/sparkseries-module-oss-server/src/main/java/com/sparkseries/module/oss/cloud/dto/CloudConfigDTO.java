@@ -27,9 +27,15 @@ public class CloudConfigDTO implements Serializable {
     @Schema(description = "阿里云OSS的accessKeySecret")
     @NotBlank(message = "请输入你的阿里云OSS的accessKeySecret", groups = OssGroup.class)
     private String ossAccessKeySecret;
-    @Schema(description = "阿里云OSS的bucketName")
-    @NotBlank(message = "请输入你的阿里云OSS的bucketName", groups = OssGroup.class)
-    private String ossBucketName;
+    @Schema(description = "阿里云OSS的公共存储桶桶名")
+    @NotBlank(message = "请输入你的阿里云OSS的公共存储桶桶名", groups = OssGroup.class)
+    private String ossPublicBucketName;
+    @Schema(description = "阿里云OSS的私有存储桶桶名")
+    @NotBlank(message = "请输入你的阿里云OSS的私有存储桶桶名", groups = OssGroup.class)
+    private String ossPrivateBucketName;
+    @Schema(description = "阿里云OSS的用户信息存储桶桶名")
+    @NotBlank(message = "请输入你的阿里云OSS的用户信息存储桶桶名", groups = OssGroup.class)
+    private String ossUserInfoBucketName;
     @Schema(description = "阿里云OSS所属地区")
     @NotBlank(message = "请输入你的阿里云OSS所属地", groups = OssGroup.class)
     private String ossRegion;
@@ -39,9 +45,17 @@ public class CloudConfigDTO implements Serializable {
     @Schema(description = "腾讯云COS的secretKey")
     @NotBlank(message = "请输入你的腾讯云COS的secretKey", groups = CosGroup.class)
     private String cosSecretKey;
-    @Schema(description = "腾讯云COS的bucketName")
-    @NotBlank(message = "请输入你的腾讯云COS的bucketName", groups = CosGroup.class)
-    private String cosBucketName;
+
+    @Schema(description = "腾讯云COS的公共存储桶桶名")
+    @NotBlank(message = "请输入你的腾讯云COS的公共存储桶桶名", groups = CosGroup.class)
+    private String cosPublicBucketName;
+    @Schema(description = "腾讯云COS的私有存储桶桶名")
+    @NotBlank(message = "请输入你的腾讯云COS的私有存储桶桶名", groups = CosGroup.class)
+    private String cosPrivateBucketName;
+    @Schema(description = "腾讯云COS的用户信息存储桶桶名")
+    @NotBlank(message = "腾讯云COS的用户信息存储桶桶名", groups = CosGroup.class)
+    private String cosUserInfoBucketName;
+
     @Schema(description = "腾讯云COS的所属地区")
     @NotBlank(message = "请输入你的腾讯云COS的所属地", groups = CosGroup.class)
     private String cosRegion;
@@ -51,9 +65,17 @@ public class CloudConfigDTO implements Serializable {
     @Schema(description = "七牛KODO的secretKey")
     @NotBlank(message = "请输入你的七牛云KODO的secretKey", groups = KodoGroup.class)
     private String kodoSecretKey;
-    @Schema(description = "七牛存KODO的bucketName")
-    @NotBlank(message = "请输入你的七牛云KODO的bucketName", groups = KodoGroup.class)
-    private String kodoBucketName;
+
+    @Schema(description = "七牛存KODO的公共存储桶桶名")
+    @NotBlank(message = "请输入你的七牛云KODO的公共存储桶桶名", groups = KodoGroup.class)
+    private String kodoPublicBucketName;
+    @Schema(description = "七牛KODO的私有存储桶桶名")
+    @NotBlank(message = "请输入你的七牛云KODO的私有存储桶桶名", groups = KodoGroup.class)
+    private String kodoPrivateBucketName;
+    @Schema(description = "七牛KODO的用户信息存储桶桶名")
+    @NotBlank(message = "请输入你的七牛云KODO的用户信息存储桶桶名", groups = KodoGroup.class)
+    private String kodoUserInfoBucketName;
+
     @Schema(description = "Minio的endPoint")
     @NotBlank(message = "请输入你的Minio的endpoint", groups = MinioGroup.class)
     private String minioEndPoint;
@@ -63,9 +85,16 @@ public class CloudConfigDTO implements Serializable {
     @Schema(description = "Minio的secretKey")
     @NotBlank(message = "请输入你的Minio的secretKey", groups = MinioGroup.class)
     private String minioSecretKey;
-    @Schema(description = "Minio的BucketName")
-    @NotBlank(message = "请输入你的Minio的bucketName", groups = MinioGroup.class)
-    private String minioBucketName;
+
+    @Schema(description = "Minio的公共存储桶桶名")
+    @NotBlank(message = "请输入你的Minio的公共存储桶桶名", groups = MinioGroup.class)
+    private String minioPublicBucketName;
+    @Schema(description = "Minio的私有存储桶桶名")
+    @NotBlank(message = "请输入你的Minio的私有存储桶桶名", groups = MinioGroup.class)
+    private String minioPrivateBucketName;
+    @Schema(description = "Minio的用户信息存储桶桶名")
+    @NotBlank(message = "请输入你的Minio的用户信息存储桶桶名", groups = MinioGroup.class)
+    private String minioUserInfoBucketName;
 
     public Class<?> getGroup(StorageTypeEnum type) {
         Map<StorageTypeEnum, Class<?>> classMap = Map.of(

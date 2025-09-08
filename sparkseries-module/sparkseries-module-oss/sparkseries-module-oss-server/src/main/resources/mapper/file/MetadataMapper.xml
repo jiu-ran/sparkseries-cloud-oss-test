@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sparkseries.module.oss.file.dao.MetadataMapper">
+
+    <!--   文件元数据相关操作 -->
+
+    <insert id="insertFile">
+        INSERT INTO file_metadata (id, folder_path, user_id, file_name, file_type, file_size, storage_type, visibility)
+        VALUES (#{file.id}, #{file.folderPath}, #{file.userId}, #{file.fileName}, #{file.fileType}, #{file.fileSize},
+                #{file.storageType}, #{file.visibility})
+    </insert>
+
+    <delete id="deleteFileById">
+        DELETE
+        FROM file_metadata
+        WHERE id = #{id}
+          and storage_type = #{storageType}
+          and visibility = #{visibility}
+    </delete>
+
+    <delete id="deleteFileByFolderPath">
+        DELETE
+        FROM file_metadata
+        WHERE folder_path like concat(#{folderPath}, '%')
+          and storage_type = #{storageType}
+          and visibility = #{visibility}
+    </delete>
+
+    <update id="updateFileFolderPath">
+        UPDATE file_metadata
+        SET folder_path = #{folderPath}
+        WHERE id = #{id}
+          and storage_type = #{storageType}
+          and visibility = #{visibility}
+    </update>
+
+    <select id="isExistFileByFileName" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM file_metadata
+        WHERE file_name = #{fileName}
+          and folder_path = #{folderPath}
+          and storage_type = #{storageType}
+          and visibility = #{visibility}
+    </select>
+
+    <select id="isExistFileById" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM file_metadata
+        WHERE id = #{id}
+          and storage_type = #{storageType}
+          and visibility = #{visibility}
+    </select>
+
+    <select id="getFileMetadataById"
+            resultType="com.sparkseries.module.oss.file.entity.FileMetadataEntity">
+        SELECT *
+        FROM file_metadata
+        WHERE id = #{id}
+          and storage_type = #{storageType}
+          and visibility = #{visibility}
+    </select>
+
+    <select id="listFileByFolderPath"
+            resultType="com.sparkseries.module.oss.file.vo.FileInfoVO">
+        SELECT id, file_name, file_size, last_update_date
+        FROM file_metadata
+        WHERE user_id = #{userId}
+          and folder_path = #{folderPath}
+          and storage_type = #{storageType}
+          and visibility = #{visibility}
+    </select>
+
+    <!--文件夹元数据相关操作-->
+
+    <insert id="insertFolder">
+        INSERT INTO folder_metadata (id, user_id, folder_path, folder_name, storage_type, visibility)
+        VALUES (#{folder.id}, #{folder.userId}, #{folder.folderPath}, #{folder.folderName}, #{folder.storageType},
+                #{folder.visibility})
+    </insert>
+
+    <delete id="deleteFolderById">
+        DELETE
+        FROM folder_metadata
+        WHERE id = #{id}
+          and storage_type = #{storageType}
+          and visibility = #{visibility}
+    </delete>
+
+    <delete id="deleteSubfoldersByFolderPath">
+        DELETE
+        FROM folder_metadata
+        WHERE folder_path like concat(#{folderPath}, '%')
+          and storage_type = #{storageType}
+          and visibility = #{visibility}
+    </delete>
+
+    <select id="isExistFolderByFolderPath" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM folder_metadata
+        WHERE folder_name = #{folderName}
+          and folder_path = #{folderPath}
+          and storage_type = #{storageType}
+          and visibility = #{visibility}
+    </select>
+
+
+    <select id="listFolderPathByFolderName"
+            resultType="java.lang.String">
+        SELECT distinct folder_path
+        FROM file_metadata
+        WHERE folder_path = concat(#{folderPath}, '%')
+          and storage_type = #{storageType}
+          and visibility = #{visibility}
+    </select>
+
+    <select id="listFolderNameByFolderPath" resultType="java.lang.String">
+        select distinct folder_name
+        FROM folder_metadata
+        WHERE user_id = #{userId}
+          and folder_path = #{folderPath}
+          and storage_type = #{storageType}
+          and visibility = #{visibility}
+    </select>
+</mapper>

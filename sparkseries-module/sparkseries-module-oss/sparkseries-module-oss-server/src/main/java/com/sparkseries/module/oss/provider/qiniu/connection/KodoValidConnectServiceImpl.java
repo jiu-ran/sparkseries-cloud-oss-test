@@ -32,16 +32,18 @@ public class KodoValidConnectServiceImpl implements ValidConnectService {
 
         String accessKey = config.getKodoAccessKey();
         String secretKey = config.getKodoSecretKey();
-        String bucketName = config.getKodoBucketName();
 
-        return connectTest(accessKey, secretKey, bucketName);
+
+        return connectTest(accessKey, secretKey, config.getKodoPublicBucketName())
+                && connectTest(accessKey, secretKey, config.getKodoPrivateBucketName())
+                && connectTest(accessKey, secretKey, config.getKodoUserInfoBucketName());
     }
 
     /**
      * KODO测试连接
      *
-     * @param accessKey  KODO的AccessKey
-     * @param secretKey  KODO的SecretKey
+     * @param accessKey KODO的AccessKey
+     * @param secretKey KODO的SecretKey
      * @param bucketName KODO的bucketName
      * @return 测试结果
      */

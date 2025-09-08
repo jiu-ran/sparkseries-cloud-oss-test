@@ -25,6 +25,7 @@ import java.util.UUID;
  */
 @Slf4j
 public class OssValidConnectServiceImpl implements ValidConnectService {
+
     /**
      * 获取OSS的配置文件
      *
@@ -37,20 +38,22 @@ public class OssValidConnectServiceImpl implements ValidConnectService {
         String endpoint = config.getOssEndPoint();
         String accessKeyId = config.getOssAccessKeyId();
         String accessKeySecret = config.getOssAccessKeySecret();
-        String bucketName = config.getOssBucketName();
-        String region = config.getOssRegion();
 
-        return connectTest(endpoint, accessKeyId, accessKeySecret, bucketName, region);
+
+        String region = config.getOssRegion();
+        return connectTest(endpoint, accessKeyId, accessKeySecret, config.getOssPublicBucketName(), region)
+                && connectTest(endpoint, accessKeyId, accessKeySecret, config.getOssPrivateBucketName(), region)
+                && connectTest(endpoint, accessKeyId, accessKeySecret, config.getOssUserInfoBucketName(), region);
     }
 
     /**
      * 测试OSS连接
      *
-     * @param endpoint        OSS的域名
-     * @param accessKeyId     OSS的AccessKeyId
+     * @param endpoint OSS的域名
+     * @param accessKeyId OSS的AccessKeyId
      * @param accessKeySecret OSS的AccessKeySecret
-     * @param bucketName      OSS的BucketName
-     * @param region          OSS的区域
+     * @param bucketName OSS的BucketName
+     * @param region OSS的区域
      * @return 测试结果
      */
     public boolean connectTest(String endpoint, String accessKeyId, String accessKeySecret, String bucketName, String region) {

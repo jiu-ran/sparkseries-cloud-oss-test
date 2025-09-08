@@ -1,7 +1,8 @@
 package com.sparkseries.module.oss.avatar.dao;
 
 
-import com.sparkeries.dto.AvatarDTO;
+import com.sparkeries.enums.StorageTypeEnum;
+import com.sparkseries.module.oss.avatar.entity.AvatarEntity;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -16,7 +17,7 @@ public interface AvatarMapper {
      * @param avatar 头像信息
      * @return 受影响行数
      */
-    Integer insertAvatar(@Param("avatar") AvatarDTO avatar);
+    Integer insertAvatar(@Param("avatar") AvatarEntity avatar);
 
 
     /**
@@ -25,15 +26,16 @@ public interface AvatarMapper {
      * @param avatar 头像信息
      * @return 受影响行数
      */
-    Integer updateAvatar(@Param("avatar") AvatarDTO avatar);
+    Integer updateAvatar(@Param("avatar") AvatarEntity avatar);
 
     /**
      * 根据用户ID查询头像信息
      *
      * @param userId 用户ID
+     * @param storageType 存储类型
      * @return 头像信息
      */
-    String getAvatarPathByUserId(@Param("userId") Long userId);
+    AvatarEntity getAvatarByUserId(@Param("userId") Long userId, @Param("storageType") StorageTypeEnum storageType);
 
 
 }

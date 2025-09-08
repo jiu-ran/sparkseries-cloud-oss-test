@@ -34,18 +34,20 @@ public class MinioValidConnectServiceImpl implements ValidConnectService {
         String endpoint = config.getMinioEndPoint();
         String accessKey = config.getMinioAccessKey();
         String secretKey = config.getMinioSecretKey();
-        String bucketName = config.getMinioBucketName();
 
-        return connectTest(endpoint, accessKey, secretKey, bucketName);
+
+        return connectTest(endpoint, accessKey, secretKey, config.getMinioPublicBucketName())
+                && connectTest(endpoint, accessKey, secretKey, config.getMinioPrivateBucketName())
+                && connectTest(endpoint, accessKey, secretKey, config.getMinioUserInfoBucketName());
 
     }
 
     /**
      * 测试Minio连接
      *
-     * @param endpoint   Minio的endpoint
-     * @param accessKey  Minio的accessKey
-     * @param secretKey  Minio的secretKey
+     * @param endpoint Minio的endpoint
+     * @param accessKey Minio的accessKey
+     * @param secretKey Minio的secretKey
      * @param bucketName Minio的bucketName
      * @return 测试结果
      */
