@@ -8,7 +8,7 @@ import org.springframework.http.ResponseEntity;
 import java.util.List;
 
 /**
- * 文件服务接口，定义了文件管理相关的操作
+ * 对象存储管理
  */
 public interface FileService {
 

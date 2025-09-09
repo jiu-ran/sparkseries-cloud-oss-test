@@ -11,13 +11,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * 储存服务
+ * 储存服务管理
  */
 @Slf4j
 @RestController
 @RequestMapping("/storage")
 @RequiredArgsConstructor
-@Tag(name = "储存服务", description = "储存服务")
+@Tag(name = "储存服务管理")
 public class StorageController {
 
     private final StorageService storageService;
@@ -26,8 +26,8 @@ public class StorageController {
      * 切换储存服务
      *
      * @param type 云服务类型
-     * @param id   云服务ID
-     * @return 切换结果
+     * @param id 云服务 ID
+     * @return 默认响应类
      */
     @PutMapping("/strategy")
     @Operation(summary = "切换储存服务")

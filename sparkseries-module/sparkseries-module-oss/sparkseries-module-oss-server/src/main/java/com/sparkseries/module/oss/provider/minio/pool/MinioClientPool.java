@@ -2,15 +2,16 @@ package com.sparkseries.module.oss.provider.minio.pool;
 
 
 import com.sparkseries.module.oss.common.config.PoolConfig;
+import com.sparkseries.module.oss.common.exception.OssException;
 import com.sparkseries.module.oss.provider.minio.factory.MinioClientFactory;
 import io.minio.MinioClient;
 import org.apache.commons.pool2.impl.GenericObjectPool;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 
 /**
- * MinioClient连接池
+ * Minio 客户端连接池
  */
-public class  MinioClientPool {
+public class MinioClientPool {
 
     private final GenericObjectPool<MinioClient> pool;
 
@@ -31,20 +32,28 @@ public class  MinioClientPool {
         );
     }
 
-    // 获取客户端
-    public MinioClient getClient() throws Exception {
-        return pool.borrowObject();
+    /**
+     * 获取 Minio 客户端
+     *
+     * @return Minio 客户端
+     */
+    public MinioClient getClient() {
+        try {
+            return pool.borrowObject();
+        } catch (Exception e) {
+            throw new OssException("获取 Minio 客户端失败", e);
+        }
     }
 
-    // 归还客户端
+    /**
+     * 归还 Minio 客户端
+     *
+     * @param client Minio 客户端
+     */
     public void returnClient(MinioClient client) {
         if (client != null) {
             pool.returnObject(client);
         }
     }
 
-    // 关闭连接池
-    public void close() {
-        pool.close();
-    }
 }

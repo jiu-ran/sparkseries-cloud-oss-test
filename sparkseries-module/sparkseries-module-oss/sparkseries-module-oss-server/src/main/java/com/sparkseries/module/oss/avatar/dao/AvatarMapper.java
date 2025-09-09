@@ -12,7 +12,7 @@ import org.apache.ibatis.annotations.Param;
 @Mapper
 public interface AvatarMapper {
     /**
-     * 添加用户头像
+     * 添加用户头像元数据
      *
      * @param avatar 头像信息
      * @return 受影响行数
@@ -29,9 +29,9 @@ public interface AvatarMapper {
     Integer updateAvatar(@Param("avatar") AvatarEntity avatar);
 
     /**
-     * 根据用户ID查询头像信息
+     * 根据用户 ID 查询头像信息
      *
-     * @param userId 用户ID
+     * @param userId 用户 ID
      * @param storageType 存储类型
      * @return 头像信息
      */

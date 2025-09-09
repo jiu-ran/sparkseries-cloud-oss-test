@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 /**
- * Kodo配置保存策略
+ * Kodo 配置保存策略
  */
 @Component
 @RequiredArgsConstructor
@@ -19,11 +19,23 @@ public class KodoOssConfigFactory implements OssConfigFactory {
 
     private final CloudConfigMapper cloudMapper;
 
+    /**
+     * 获取存储类型
+     *
+     * @return 存储类型枚举
+     */
     @Override
     public StorageTypeEnum getStorageType() {
         return StorageTypeEnum.KODO;
     }
 
+    /**
+     * 保存云存储配置信息
+     *
+     * @param config 云存储配置信息
+     * @param id id
+     * @return 受影响的行数
+     */
     @Override
     public Integer saveConfig(CloudConfigDTO config, Long id) {
         KodoConfigEntity kodoConfigEntity = new KodoConfigEntity(
@@ -38,13 +50,35 @@ public class KodoOssConfigFactory implements OssConfigFactory {
         return cloudMapper.insertKodoConfig(kodoConfigEntity);
     }
 
+    /**
+     * 删除云存储配置信息
+     *
+     * @param id id
+     * @return 删除的行数
+     */
     @Override
     public Integer deleteConfig(Long id) {
         return cloudMapper.deleteKodoConfigById(id);
     }
 
+    /**
+     * 获取云存储配置信息
+     *
+     * @return 云存储配置信息
+     */
     @Override
     public List<?> listConfig() {
         return cloudMapper.listKodoConfig();
+    }
+
+    /**
+     * 获取云存储配置信息
+     *
+     * @param id id
+     * @return 云存储配置信息
+     */
+    @Override
+    public KodoConfigEntity getConfig(Long id) {
+        return cloudMapper.getKodoConfigById(id);
     }
 }

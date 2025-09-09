@@ -11,15 +11,15 @@ public interface OssServiceFactory {
     /**
      * 获取该工厂支持的存储类型
      *
-     * @return StorageTypeEnum
+     * @return 存储类型枚举
      */
     StorageTypeEnum getStorageType();
 
     /**
-     * 根据配置ID创建 OssService 实例
+     * 根据配置 id 创建存储服务实例
      *
-     * @param id 配置ID
-     * @return OssService 实例
+     * @param id id
+     * @return 存储实例
      */
     OssService createService(Long id);
 }

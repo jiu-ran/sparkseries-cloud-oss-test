@@ -33,10 +33,8 @@ import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import static org.aspectj.weaver.tools.cache.SimpleCacheFactory.path;
-
 /**
- * 对象存储服务实现类
+ * 对象存储管理
  */
 @Slf4j
 @Service
@@ -49,7 +47,6 @@ public class FileServiceImpl implements FileService {
 
     public FileServiceImpl(MetadataMapper metadataMapper, DynamicStorageSwitchService provider) {
         this.metadataMapper = metadataMapper;
-
         this.provider = provider;
         log.info("FileServiceImpl 初始化完成，使用动态存储服务管理器");
     }
@@ -70,13 +67,15 @@ public class FileServiceImpl implements FileService {
      * @param files 待上传的文件列表
      * @param folderPath 文件存储的文件夹路径
      * @param visibility 能见度
-     * @return 上传结果
+     * @return 默认响应类
      */
     @Override
     public Result<?> uploadFiles(List<MultipartFileDTO> files, String folderPath, VisibilityEnum visibility) {
 
         folderPath = FileUtil.normalizeAndValidateFolderPath(folderPath);
+
         StorageTypeEnum storageType = getCurrentStorageService().getStorageType();
+
         log.info("批量文件上传开始，文件数量: {}，目标路径: {}", files.size(), folderPath);
 
         // 检验上传的文件名是否存在
@@ -94,7 +93,7 @@ public class FileServiceImpl implements FileService {
      * @param folderName 文件夹名
      * @param folderPath 文件夹路径
      * @param visibility 能见度
-     * @return 操作结果
+     * @return 默认响应类
      */
     @Override
     public Result<?> createFolder(String folderName, String folderPath, VisibilityEnum visibility) {
@@ -110,7 +109,6 @@ public class FileServiceImpl implements FileService {
             return Result.error("该文件夹已存在");
         }
 
-
         boolean folder = getCurrentStorageService().createFolder(folderName, folderPath, visibility, userId.toString());
 
         if (!folder) {
@@ -124,10 +122,10 @@ public class FileServiceImpl implements FileService {
         int row = metadataMapper.insertFolder(folderMetadataEntity);
 
         if (row <= 0) {
-            log.error("数据库中添加文件夹相关信息失败");
+            log.warn("数据库中添加文件夹相关信息失败");
             throw new OssException("数据库中添加 文件夹相关信息失败");
         }
-        log.info("文件夹创建成功: {}", path);
+        log.info("文件夹创建成功: {}", folderPath + folderName);
 
         return Result.ok("创建文件夹成功");
     }
@@ -137,7 +135,7 @@ public class FileServiceImpl implements FileService {
      *
      * @param id 文件 ID
      * @param visibility 能见度
-     * @return 操作结果
+     * @return 默认响应类
      */
     @Override
     public Result<?> deleteFile(Long id, VisibilityEnum visibility) {
@@ -147,10 +145,12 @@ public class FileServiceImpl implements FileService {
         FileMetadataEntity file = metadataMapper.getFileMetadataById(id, storageType, visibility);
 
         if (ObjectUtils.isEmpty(file)) {
+            log.warn("用户:{} 进行文件删除操作 文件:{} 不存在 ", userId, id);
             throw new OssException("文件不存在,删除失败");
         }
 
         if (!file.getUserId().equals(userId) && file.getVisibility() == VisibilityEnum.PRIVATE) {
+            log.warn("用户:{} 进行文件删除操作 文件:{} 不存在 ", userId, id);
             throw new OssException("您没有权限删除该文件");
         }
 
@@ -161,12 +161,14 @@ public class FileServiceImpl implements FileService {
         boolean deleteFile = getCurrentStorageService().deleteFile(fileName, folderPath, visibility, userId.toString());
 
         if (!deleteFile) {
+            log.warn("用户:{} 删除云存储文件:{} 删除失败", userId, folderPath + fileName);
             throw new OssException("存储文件删除失败");
         }
 
         int row = metadataMapper.deleteFileById(id, storageType, visibility);
 
         if (row <= 0) {
+            log.warn("用户:{} 删除数据库元数据:{} 删除失败", userId, folderPath + fileName);
             throw new OssException("数据库删除失败");
         }
 
@@ -181,7 +183,7 @@ public class FileServiceImpl implements FileService {
      * @param folderName 文件夹名
      * @param folderPath 文件夹路径
      * @param visibility 能见度
-     * @return 操作结果
+     * @return 默认响应类
      */
     @Override
     public Result<?> deleteFolder(String folderName, String folderPath, VisibilityEnum visibility) {
@@ -189,7 +191,8 @@ public class FileServiceImpl implements FileService {
         Long userId = CurrentUser.getId();
 
         StorageTypeEnum storageType = getCurrentStorageService().getStorageType();
-        folderName = FileUtil.normalizeFolderName(folderName);
+
+        folderName = FileUtil.normalizeAndValidateFolderName(folderName);
 
         folderPath = FileUtil.normalizeAndValidateFolderPath(folderPath);
 
@@ -205,7 +208,7 @@ public class FileServiceImpl implements FileService {
             return Result.error("删除失败");
         }
 
-        log.info("文件夹{}删除成功", path);
+        log.info("文件夹{}删除成功", folderPath + folderName);
 
         return Result.ok("删除成功");
     }
@@ -217,7 +220,7 @@ public class FileServiceImpl implements FileService {
      * @param folderName 文件夹名
      * @param folderPath 文件夹路径
      * @param visibility 能见度
-     * @return 操作结果
+     * @return 默认响应类
      */
     @Override
     public Result<?> moveFile(Long id, String folderName, String folderPath, VisibilityEnum visibility) {
@@ -264,6 +267,7 @@ public class FileServiceImpl implements FileService {
     public Result<?> listFileAndFolder(String folderName, String folderPath, VisibilityEnum visibility) {
         // 规范路径
         Long userId = CurrentUser.getId();
+
         folderPath = FileUtil.normalizeAndValidateFolderPath(folderPath);
 
         folderName = FileUtil.normalizeAndValidateFolderName(folderName);
@@ -301,7 +305,7 @@ public class FileServiceImpl implements FileService {
                 String avatarUrl = UriComponentsBuilder.newInstance().scheme(request.getScheme()).host(host).port(request.getServerPort()).path("/user/previewLocal/{id}").queryParam("visibility", visibility).buildAndExpand(id).toUriString();
                 return Result.ok(avatarUrl);
             } catch (UnknownHostException e) {
-                log.error("获取服务器主机地址失败", e);
+                log.warn("获取服务器主机地址失败", e);
                 throw new OssException("无法生成头像URL，获取主机地址失败");
             }
         }
@@ -346,7 +350,7 @@ public class FileServiceImpl implements FileService {
                 String avatarUrl = UriComponentsBuilder.newInstance().scheme(request.getScheme()).host(host).port(request.getServerPort()).path("/user/downloadLocal/{id}").queryParam("visibility", visibility).buildAndExpand(id).toUriString();
                 return Result.ok(avatarUrl);
             } catch (UnknownHostException e) {
-                log.error("获取服务器主机地址失败", e);
+                log.warn("获取服务器主机地址失败", e);
                 throw new OssException("无法生成头像URL，获取主机地址失败");
             }
         }
@@ -471,9 +475,13 @@ public class FileServiceImpl implements FileService {
         return file;
     }
 
-
     /**
      * 检验指定文件夹下是否存在相同文件名的文件
+     *
+     * @param lists 文件列表
+     * @param visibility 能见度
+     * @param folderPath 文件夹路径
+     * @param storageType 存储类型
      */
     private void checkFileExist(List<MultipartFileDTO> lists, VisibilityEnum visibility, String folderPath, StorageTypeEnum storageType) {
         StringBuilder filenameList = new StringBuilder();
@@ -489,6 +497,5 @@ public class FileServiceImpl implements FileService {
             throw new OssException("文件名已存在: " + filenameList);
         }
     }
-
 
 }

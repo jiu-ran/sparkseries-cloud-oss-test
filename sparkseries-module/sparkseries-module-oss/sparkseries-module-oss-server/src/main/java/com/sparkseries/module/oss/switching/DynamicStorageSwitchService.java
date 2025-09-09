@@ -76,7 +76,7 @@ public class DynamicStorageSwitchService {
     public OssService getCurrentStrategy() {
         OssService ossService = this.currentStrategy.get();
         if (ossService == null) {
-            log.error("存储服务没有正常启动,无法进行正常操作");
+            log.warn("存储服务没有正常启动,无法进行正常操作");
             throw new OssException("存储服务没有正常启动,无法进行正常操作");
         }
         return ossService;
@@ -104,7 +104,7 @@ public class DynamicStorageSwitchService {
      * 切换存储服务
      *
      * @param type 存储服务类型
-     * @param id   存储服务ID
+     * @param id   存储服务 id
      */
     public void changeOssService(int type, Long id) {
         StorageTypeEnum storageEnum = StorageTypeEnum.getStorageEnum(type);
@@ -122,7 +122,7 @@ public class DynamicStorageSwitchService {
                 setCurrentStrategy(storageEnum);
                 log.info("启动存储服务成功,当前存储服务为 {}", storageEnum.name());
             } catch (Exception e) {
-                log.error("存储服务切换失败 错误信息:{}", e.getMessage());
+                log.warn("存储服务切换失败 错误信息:{}", e.getMessage());
                 throw new OssException("存储服务切换失败");
             }
 

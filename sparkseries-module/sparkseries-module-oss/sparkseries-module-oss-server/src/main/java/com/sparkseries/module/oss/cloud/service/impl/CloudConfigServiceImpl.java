@@ -1,13 +1,14 @@
 package com.sparkseries.module.oss.cloud.service.impl;
 
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
+import com.baomidou.mybatisplus.core.toolkit.ObjectUtils;
 import com.sparkeries.enums.StorageTypeEnum;
 import com.sparkseries.common.util.entity.Result;
 import com.sparkseries.module.oss.cloud.dto.CloudConfigDTO;
-import com.sparkseries.module.oss.common.api.provider.service.ValidConnectService;
+import com.sparkseries.module.oss.cloud.service.CloudConfigService;
 import com.sparkseries.module.oss.common.api.provider.factory.ConnectValidFactory;
 import com.sparkseries.module.oss.common.api.provider.factory.OssConfigFactory;
-import com.sparkseries.module.oss.cloud.service.CloudConfigService;
+import com.sparkseries.module.oss.common.api.provider.service.ValidConnectService;
 import com.sparkseries.module.oss.common.exception.OssException;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
@@ -20,7 +21,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-
+/**
+ * 云存储配置管理
+ */
 @Slf4j
 @Service
 @Transactional(rollbackFor = Exception.class)
@@ -40,8 +43,8 @@ public class CloudConfigServiceImpl implements CloudConfigService {
     /**
      * 验证云存储配置信息
      *
-     * @param config 云存储配置DTO
-     * @return 操作结果
+     * @param config 云存储配置信息
+     * @return 默认响应类
      */
     @Override
     public boolean validCloudConfig(CloudConfigDTO config) {
@@ -76,7 +79,7 @@ public class CloudConfigServiceImpl implements CloudConfigService {
      * 保存云存储配置信息
      *
      * @param config 云存储配置信息
-     * @return 操作结果
+     * @return 默认响应类
      */
     @Override
     public Result<?> saveCloudConfig(CloudConfigDTO config) {
@@ -84,31 +87,26 @@ public class CloudConfigServiceImpl implements CloudConfigService {
         StorageTypeEnum storageEnum = config.getTypeEnum();
 
         long id = IdWorker.getId();
-        try {
-            OssConfigFactory strategy = ossConfigFactoryMap.get(storageEnum);
-            Integer row = strategy.saveConfig(config, id);
 
-            String storageTypeName = storageEnum.getKey().toUpperCase();
-            if (row <= 0) {
-                log.error("{}云储存信息添加失败", storageTypeName);
-                throw new OssException(storageTypeName + "云储存信息添加失败");
-            } else {
-                log.info("{}云储存信息添加成功", storageTypeName);
-                return Result.ok(storageTypeName + "云储存信息添加成功");
-            }
-        } catch (OssException e) {
-            throw e;
-        } catch (Exception e) {
-            log.error("保存云存储配置时发生异常", e);
-            throw new OssException("保存云存储配置失败: " + e.getMessage());
+        OssConfigFactory strategy = ossConfigFactoryMap.get(storageEnum);
+        Integer row = strategy.saveConfig(config, id);
+
+        String storageTypeName = storageEnum.getKey().toUpperCase();
+        if (row <= 0) {
+            log.warn("{}云储存信息添加失败", storageTypeName);
+            throw new OssException(storageTypeName + "云储存信息添加失败");
+        } else {
+            log.info("{}云储存信息添加成功", storageTypeName);
+            return Result.ok(storageTypeName + "云储存信息添加成功");
         }
+
     }
 
     /**
      * 验证云存储配置的连接性并保存配置信息
      *
      * @param config 云存储配置信息
-     * @return 操作结果
+     * @return 默认响应类
      */
     @Override
     public Result<?> validAndSave(CloudConfigDTO config) {
@@ -124,15 +122,22 @@ public class CloudConfigServiceImpl implements CloudConfigService {
      * 删除云存储配置
      *
      * @param type 云存储类型
-     * @param id   配置ID
-     * @return 操作结果
+     * @param id 配置 ID
+     * @return 默认响应类
      */
     @Override
     public Result<?> deleteCloudConfig(int type, Long id) {
 
         StorageTypeEnum storageEnum = StorageTypeEnum.getStorageEnum(type);
 
+        Object config = ossConfigFactoryMap.get(storageEnum).getConfig(id);
+
+        if (ObjectUtils.isEmpty(config)) {
+            return Result.error("未找到该配置");
+        }
+
         Integer row = ossConfigFactoryMap.get(storageEnum).deleteConfig(id);
+
         if (row < 1) {
             return Result.error("删除失败");
         }

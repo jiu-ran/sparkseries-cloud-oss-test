@@ -7,7 +7,7 @@ import org.apache.commons.pool2.PooledObject;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
 
 /**
- * COS客户端对象工厂
+ * COS 客户端对象工厂
  */
 @Slf4j
 public class MinioClientFactory extends BasePooledObjectFactory<MinioClient> {
@@ -22,6 +22,11 @@ public class MinioClientFactory extends BasePooledObjectFactory<MinioClient> {
         this.secretKey = secretKey;
     }
 
+    /**
+     * 创建客户端
+     *
+     * @return Minio 客户端
+     */
     @Override
     public MinioClient create() {
         MinioClient minio = MinioClient.builder().
@@ -32,20 +37,11 @@ public class MinioClientFactory extends BasePooledObjectFactory<MinioClient> {
         return minio;
     }
 
-
+    /**
+     * 实现包装提供的实例
+     */
     @Override
     public PooledObject<MinioClient> wrap(MinioClient client) {
         return new DefaultPooledObject<>(client);
-    }
-
-    @Override
-    public void destroyObject(PooledObject<MinioClient> p) throws Exception {
-        // 关闭COS客户端
-        p.getObject().close();
-    }
-
-    @Override
-    public boolean validateObject(PooledObject<MinioClient> p) {
-        return true;
     }
 }

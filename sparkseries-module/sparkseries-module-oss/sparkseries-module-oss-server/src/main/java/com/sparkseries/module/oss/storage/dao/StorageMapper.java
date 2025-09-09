@@ -5,7 +5,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 /**
- * 存储服务Mapper
+ * 存储服务 Mapper
  */
 @Mapper
 public interface StorageMapper {

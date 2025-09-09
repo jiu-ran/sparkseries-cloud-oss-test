@@ -22,7 +22,9 @@ import java.util.Map;
 
 import static com.sparkeries.enums.VisibilityEnum.*;
 
-
+/**
+ * MINIO 存储服务工厂
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -32,11 +34,22 @@ public class MinioOssServiceFactory implements OssServiceFactory {
     private final PoolConfig poolConfig;
     private final MetadataMapper metadataMapper;
 
+    /**
+     * 获取存储类型
+     *
+     * @return 存储类型枚举
+     */
     @Override
     public StorageTypeEnum getStorageType() {
         return StorageTypeEnum.MINIO;
     }
 
+    /**
+     * 创建存储服务
+     *
+     * @param id id
+     * @return 存储服务
+     */
     @Override
     public OssService createService(Long id) {
         MinioConfigEntity minio = cloudConfigMapper.getMinioConfigById(id);

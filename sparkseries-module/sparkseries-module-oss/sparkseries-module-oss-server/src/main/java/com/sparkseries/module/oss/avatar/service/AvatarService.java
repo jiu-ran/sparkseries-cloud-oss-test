@@ -12,15 +12,15 @@ public interface AvatarService {
     /**
      * 上传用户头像
      *
-     * @param avatar 头像信息
-     * @return 上传结果信息
+     * @param avatar 用户头像相关信息
+     * @return 默认响应类
      */
     Result<String> uploadAvatar(MultipartFileDTO avatar);
 
     /**
      * 更新用户头像
      *
-     * @param avatar 头像信息
+     * @param avatar 用户头像相关信息
      * @return 默认响应类
      */
     Result<?> updateAvatar(MultipartFileDTO avatar);

@@ -11,8 +11,8 @@ public interface ValidConnectService {
     /**
      * 验证云存储配置连接
      *
-     * @param config 云存储配置DTO
-     * @return 连接是否有效
+     * @param config 云存储配置信息
+     * @return 操作结果
      */
     boolean validConnect(CloudConfigDTO config);
 }

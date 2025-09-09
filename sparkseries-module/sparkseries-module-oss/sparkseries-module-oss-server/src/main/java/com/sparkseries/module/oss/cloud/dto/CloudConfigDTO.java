@@ -5,6 +5,8 @@ import com.sparkeries.enums.StorageTypeEnum;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.ObjectUtils;
 
 import java.io.Serializable;
 import java.util.Map;
@@ -12,6 +14,7 @@ import java.util.Map;
 /**
  * 云存储配置数据传输对象
  */
+@Slf4j
 @Data
 @Schema(description = "云存储配置信息")
 public class CloudConfigDTO implements Serializable {
@@ -104,7 +107,14 @@ public class CloudConfigDTO implements Serializable {
                 StorageTypeEnum.MINIO, MinioGroup.class,
                 StorageTypeEnum.LOCAL, LocalGroup.class
         );
-        return classMap.get(type);
+        Class<?> storageType = classMap.get(type);
+
+        if (ObjectUtils.isEmpty(storageType)) {
+            log.warn("不支持的云服务类型");
+            throw new IllegalArgumentException("不支持的云服务类型");
+        }
+
+        return storageType;
     }
 
     public interface OssGroup {

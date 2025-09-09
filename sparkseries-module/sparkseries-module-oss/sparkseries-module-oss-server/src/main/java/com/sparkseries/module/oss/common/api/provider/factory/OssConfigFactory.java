@@ -20,8 +20,8 @@ public interface OssConfigFactory {
     /**
      * 保存配置
      *
-     * @param config 云存储配置DTO
-     * @param id     生成的ID
+     * @param config 云存储配置信息
+     * @param id id
      * @return 影响的行数
      */
     Integer saveConfig(CloudConfigDTO config, Long id);
@@ -29,7 +29,7 @@ public interface OssConfigFactory {
     /**
      * 删除配置
      *
-     * @param id 配置ID
+     * @param id id
      * @return 影响的行数
      */
     Integer deleteConfig(Long id);
@@ -37,9 +37,16 @@ public interface OssConfigFactory {
     /**
      * 获取所有配置
      *
-     * @return 所有配置
+     * @return 云配置信息列表
      */
     List<?> listConfig();
 
+    /**
+     * 获取配置
+     *
+     * @param id id
+     * @return 配置信息
+     */
+    Object getConfig(Long id);
 
 }

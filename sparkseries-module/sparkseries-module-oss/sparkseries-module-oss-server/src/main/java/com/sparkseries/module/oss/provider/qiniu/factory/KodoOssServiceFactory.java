@@ -22,7 +22,9 @@ import java.util.Map;
 
 import static com.sparkeries.enums.VisibilityEnum.*;
 
-
+/**
+ * KODO 存储服务工厂
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -32,11 +34,21 @@ public class KodoOssServiceFactory implements OssServiceFactory {
     private final PoolConfig poolConfig;
     private final MetadataMapper metadataMapper;
 
+    /**
+     * 获取存储类型
+     *
+     * @return 存储类型枚举
+     */
     @Override
     public StorageTypeEnum getStorageType() {
         return StorageTypeEnum.KODO;
     }
-
+    /**
+     * 创建 KODO 存储服务
+     *
+     * @param id id
+     * @return 文件存储服务接口
+     */
     @Override
     public OssService createService(Long id) {
         KodoConfigEntity kodo = cloudConfigMapper.getKodoConfigById(id);

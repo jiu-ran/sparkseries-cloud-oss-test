@@ -11,7 +11,7 @@ import org.apache.commons.pool2.PooledObject;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
 
 /**
- * OSS客户端对象工厂
+ * OSS 客户端对象工厂
  */
 @Slf4j
 public class OssClientFactory extends BasePooledObjectFactory<OSS> {
@@ -28,6 +28,11 @@ public class OssClientFactory extends BasePooledObjectFactory<OSS> {
         this.region = region;
     }
 
+    /**
+     * 创建对象
+     *
+     * @return OSS
+     */
     @Override
     public OSS create() {
         DefaultCredentialProvider credentialsProvider = new DefaultCredentialProvider
@@ -42,7 +47,7 @@ public class OssClientFactory extends BasePooledObjectFactory<OSS> {
     }
 
     /**
-     * 包装对象
+     * 实现包装提供的实例
      */
     @Override
     public PooledObject<OSS> wrap(OSS oss) {

@@ -20,13 +20,13 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 
 /**
- * Minio连接验证服务实现类
+ * Minio 配置信息校验类
  */
 @Slf4j
 public class MinioValidConnectServiceImpl implements ValidConnectService {
     /**
-     * @param config 接收到云服务配置文件
-     * @return 验证结果
+     * @param config 云服务配置信息
+     * @return 检验结果
      */
     @Override
     public boolean validConnect(CloudConfigDTO config) {
@@ -43,12 +43,12 @@ public class MinioValidConnectServiceImpl implements ValidConnectService {
     }
 
     /**
-     * 测试Minio连接
+     * 测试 Minio 连接
      *
-     * @param endpoint Minio的endpoint
-     * @param accessKey Minio的accessKey
-     * @param secretKey Minio的secretKey
-     * @param bucketName Minio的bucketName
+     * @param endpoint Minio endpoint
+     * @param accessKey Minio accessKey
+     * @param secretKey Minio secretKey
+     * @param bucketName Minio bucketName
      * @return 测试结果
      */
     public boolean connectTest(String endpoint, String accessKey, String secretKey, String bucketName) {

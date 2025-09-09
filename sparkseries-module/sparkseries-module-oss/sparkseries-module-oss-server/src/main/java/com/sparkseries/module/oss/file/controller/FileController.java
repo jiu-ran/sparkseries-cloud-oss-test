@@ -47,10 +47,9 @@ public class FileController {
      */
     @PostMapping("file")
     @Operation(summary = "文件上传")
-    public Result<?> uploadFile(
-            @RequestParam("files") @NotEmpty(message = "上传文件不能为空") List<MultipartFile> files,
-            @RequestParam("folderPath") @NotBlank(message = "请输入文件的存储路径") String folderPath,
-            @RequestParam(defaultValue = "PRIVATE") VisibilityEnum visibility) {
+    public Result<?> uploadFile(@RequestParam("files") @NotEmpty(message = "上传文件不能为空") List<MultipartFile> files,
+                                @RequestParam("folderPath") @NotBlank(message = "请输入文件的存储路径") String folderPath,
+                                @RequestParam(defaultValue = "PRIVATE") VisibilityEnum visibility) {
         Long userId = CurrentUser.getId();
         List<MultipartFileDTO> fileInfos = new ArrayList<>();
         Tika tika = new Tika();
@@ -60,15 +59,14 @@ public class FileController {
                 String filename = file.getOriginalFilename();
                 long size = file.getSize();
                 String type = tika.detect(file.getInputStream());
-                fileInfos.add(
-                        MultipartFileDTO.builder()
-                                .id(id)
-                                .userId(userId)
-                                .fileName(filename)
-                                .inputStream(file.getInputStream())
-                                .size(size)
-                                .type(type)
-                                .build()
+                fileInfos.add(MultipartFileDTO.builder()
+                        .id(id)
+                        .userId(userId)
+                        .fileName(filename)
+                        .inputStream(file.getInputStream())
+                        .size(size)
+                        .type(type)
+                        .build()
                 );
             } catch (IOException e) {
                 log.warn("文件上传失败", e);
@@ -102,7 +100,7 @@ public class FileController {
      * @param visibility 能见度
      * @return 删除结果
      */
-    @DeleteMapping("/file/{id}")
+    @DeleteMapping("file/{id}")
     @Operation(summary = "删除文件")
     public Result<?> deleteFile(@PathVariable("id") @NotNull(message = "请输入文件id") Long id,
                                 @RequestParam(defaultValue = "PRIVATE") VisibilityEnum visibility) {
@@ -118,7 +116,7 @@ public class FileController {
      * @param visibility 能见度
      * @return 删除结果
      */
-    @DeleteMapping("/folder")
+    @DeleteMapping("folder")
     @Operation(summary = "删除文件夹及文件夹下的文件")
     public Result<?> deleteFolder(@RequestParam("folderName") @NotBlank(message = "请输入文件夹名") String folderName,
                                   @RequestParam("folderPath") @NotBlank(message = "文件夹的存储路径") String folderPath,
@@ -185,7 +183,7 @@ public class FileController {
      * @param visibility 能见度
      * @return 文件及文件夹列表
      */
-    @GetMapping("/list")
+    @GetMapping("list")
     @Operation(summary = "获取指定文件夹下的文件及文件夹")
     public Result<?> listFileAndFolder(@RequestParam("folderName") @NotBlank(message = "文件夹名不能为空") String folderName,
                                        @RequestParam("folderPath") @NotBlank(message = "文件路径不能为空") String folderPath,
@@ -202,7 +200,7 @@ public class FileController {
      * @param visibility 能见度
      * @return 文件预览响应
      */
-    @GetMapping("/previewLocal/{id}")
+    @GetMapping("previewLocal/{id}")
     @Operation(summary = "预览本地文件")
     public ResponseEntity<?> previewLocalFile(@PathVariable("id") @NotNull(message = "文件id不能为空") Long id,
                                               @RequestParam(defaultValue = "PRIVATE") VisibilityEnum visibility) {
@@ -217,7 +215,7 @@ public class FileController {
      * @param visibility 能见度
      * @return 文件下载响应
      */
-    @GetMapping("/downloadLocal/{id}/{visibility}")
+    @GetMapping("downloadLocal/{id}/{visibility}")
     @Operation(summary = "本地文件下载")
     public ResponseEntity<?> downLoadLocalFile(@PathVariable("id") @NotNull(message = "文件id不能为空") Long id,
                                                @PathVariable("visibility") VisibilityEnum visibility) {

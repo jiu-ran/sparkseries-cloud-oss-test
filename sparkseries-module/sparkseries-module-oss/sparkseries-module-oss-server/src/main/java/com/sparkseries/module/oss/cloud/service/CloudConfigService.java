@@ -6,13 +6,16 @@ import com.sparkseries.module.oss.cloud.dto.CloudConfigDTO;
 
 import java.util.List;
 
+/**
+ * 云存储配置管理
+ */
 public interface CloudConfigService {
 
     /**
      * 验证云存储配置的连接性
      *
-     * @param config 待验证的云存储配置DTO
-     * @return 包含操作结果的Result对象
+     * @param config 待验证的云存储配置信息
+     * @return 验证结果
      */
     boolean validCloudConfig(CloudConfigDTO config);
 
@@ -20,7 +23,7 @@ public interface CloudConfigService {
      * 保存云存储配置信息
      *
      * @param config 云存储配置信息
-     * @return 包含操作结果的Result对象
+     * @return 默认响应类
      */
     Result<?> saveCloudConfig(CloudConfigDTO config);
 
@@ -28,7 +31,7 @@ public interface CloudConfigService {
      * 验证云存储配置的连接性并保存
      *
      * @param config 云存储配置信息
-     * @return 包含操作结果的Result对象
+     * @return 默认响应类
      */
     Result<?> validAndSave(CloudConfigDTO config);
 
@@ -36,8 +39,8 @@ public interface CloudConfigService {
      * 删除指定的云存储配置
      *
      * @param type 配置类型
-     * @param id   配置ID
-     * @return 包含操作结果的Result对象
+     * @param id 配置 ID
+     * @return 默认响应类
      */
     Result<?> deleteCloudConfig(int type, Long id);
 
@@ -45,7 +48,7 @@ public interface CloudConfigService {
      * 列出指定类型的所有云存储配置
      *
      * @param type 配置类型
-     * @return 包含云存储配置列表的Result对象
+     * @return 默认响应类
      */
     Result<List<?>> listCloudConfig(int type);
 

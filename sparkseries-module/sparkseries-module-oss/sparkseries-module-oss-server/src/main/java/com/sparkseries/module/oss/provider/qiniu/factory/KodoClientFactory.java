@@ -7,7 +7,7 @@ import org.apache.commons.pool2.PooledObject;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
 
 /**
- * KODO客户端对象工厂
+ * KODO 客户端对象工厂
  */
 @Slf4j
 public class KodoClientFactory extends BasePooledObjectFactory<Auth> {
@@ -21,6 +21,11 @@ public class KodoClientFactory extends BasePooledObjectFactory<Auth> {
         this.secretKey = secretKey;
     }
 
+    /**
+     * 创建对象
+     *
+     * @return Auth
+     */
     @Override
     public Auth create() {
         Auth auth = Auth.create(accessKey, secretKey);
@@ -29,7 +34,7 @@ public class KodoClientFactory extends BasePooledObjectFactory<Auth> {
     }
 
     /**
-     * 包装对象
+     * 实现包装提供的实例
      */
     @Override
     public PooledObject<Auth> wrap(Auth auth) {

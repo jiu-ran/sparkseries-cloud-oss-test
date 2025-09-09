@@ -12,7 +12,7 @@ import org.apache.commons.pool2.PooledObject;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
 
 /**
- * COS客户端对象工厂
+ * COS 客户端对象工厂
  */
 @Slf4j
 public class CosClientFactory extends BasePooledObjectFactory<COSClient> {
@@ -27,6 +27,11 @@ public class CosClientFactory extends BasePooledObjectFactory<COSClient> {
         this.region = region;
     }
 
+    /**
+     * 创建对象
+     *
+     * @return OSS
+     */
     @Override
     public COSClient create() {
         COSCredentials cred = new BasicCOSCredentials(secretId, secretKey);
@@ -44,15 +49,7 @@ public class CosClientFactory extends BasePooledObjectFactory<COSClient> {
     }
 
     /**
-     * 销毁对象
-     */
-    @Override
-    public void destroyObject(PooledObject<COSClient> p) {
-        p.getObject().shutdown(); // 关闭COS客户端
-    }
-
-    /**
-     * 包装对象
+     * 实现包装提供的实例
      */
     @Override
     public PooledObject<COSClient> wrap(COSClient client) {

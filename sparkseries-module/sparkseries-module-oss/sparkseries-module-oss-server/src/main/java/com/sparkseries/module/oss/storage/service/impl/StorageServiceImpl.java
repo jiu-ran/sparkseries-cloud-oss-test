@@ -3,13 +3,16 @@ package com.sparkseries.module.oss.storage.service.impl;
 import com.sparkeries.enums.StorageTypeEnum;
 import com.sparkseries.common.util.entity.Result;
 import com.sparkseries.module.oss.storage.dao.StorageMapper;
-import com.sparkseries.module.oss.switching.DynamicStorageSwitchService;
 import com.sparkseries.module.oss.storage.service.StorageService;
+import com.sparkseries.module.oss.switching.DynamicStorageSwitchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 存储服务管理
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -23,7 +26,7 @@ public class StorageServiceImpl implements StorageService {
      * 切换当前活跃的存储服务
      *
      * @param type 存储类型
-     * @param id   配置ID
+     * @param id 配置 ID
      * @return 操作结果
      */
     @Override

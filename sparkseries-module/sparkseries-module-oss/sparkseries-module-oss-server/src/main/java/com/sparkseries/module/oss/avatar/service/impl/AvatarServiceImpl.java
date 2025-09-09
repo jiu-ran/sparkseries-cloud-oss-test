@@ -17,6 +17,7 @@ import com.sparkseries.module.oss.switching.DynamicStorageSwitchService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.ObjectUtils;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,7 +32,7 @@ import java.nio.file.Path;
 import static com.sparkeries.constant.Constants.*;
 
 /**
- * 头像服务实现
+ * 用户头像管理
  */
 @Slf4j
 @Service
@@ -53,8 +54,8 @@ public class AvatarServiceImpl implements AvatarService {
     /**
      * 上传用户头像
      *
-     * @param avatar 头像信息
-     * @return 上传结果
+     * @param avatar 用户头像相关信息
+     * @return 默认响应类
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -64,12 +65,12 @@ public class AvatarServiceImpl implements AvatarService {
         // 文件验证
         validateAvatar(avatar);
 
-        // 获取文件信息
+        // 获取文件扩展名
         String suffix = FileUtil.getFileExtension(avatar.getFileName());
 
         if (suffix.isEmpty()) {
-            log.warn("请上传带有文件扩展名的图片 ");
-            throw new OssException("请上传带有文件扩展名的图片");
+            log.warn("用户:{} 上传的文件扩展名为空", userId);
+            throw new OssException("请上传带有扩展名的图片");
         }
         String fileName = userId + suffix;
         // 执行上传
@@ -80,14 +81,14 @@ public class AvatarServiceImpl implements AvatarService {
                 .size(avatar.getSize())
                 .folderPath(AVATAR_STORAGE_PATH)
                 .build();
-
+        StorageTypeEnum currentStorage = provider.getCurrentStorageEnum();
         boolean uploadSuccess = getCurrentStorageService().uploadFile(avatarDTO);
 
         if (!uploadSuccess) {
-            log.warn("头像上传失败");
-            throw new OssException("上传失败");
+            log.warn("Service层:头像向 {} 存储失败", currentStorage);
+            throw new OssException("头像上传失败");
         }
-        StorageTypeEnum currentStorage = provider.getCurrentStorageEnum();
+
         String conversion = FileUtil.conversion(avatar.getSize());
         AvatarEntity avatarEntity = AvatarEntity.builder()
                 .userId(userId)
@@ -100,8 +101,8 @@ public class AvatarServiceImpl implements AvatarService {
         Integer row = avatarMapper.insertAvatar(avatarEntity);
 
         if (row <= 0) {
-            log.warn("头像信息保存失败 数据库操作失败 头像信息: {}", avatarEntity);
-            throw new OssException("上传失败");
+            log.warn("Service层:头像向数据库保存失败 头像信息: {}", avatarEntity);
+            throw new OssException("头像上传失败");
         }
 
         return Result.ok("上传成功");
@@ -110,13 +111,14 @@ public class AvatarServiceImpl implements AvatarService {
     /**
      * 修改用户头像
      *
-     * @param avatar 头像信息
+     * @param avatar 用户头像相关信息
      * @return 修改结果
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Result<?> updateAvatar(MultipartFileDTO avatar) {
-        log.info("开始修改用户头像");
+        Long userId = avatar.getUserId();
+        log.info("开始修改用户头像 用户ID:{}", userId);
         // 文件验证
         validateAvatar(avatar);
 
@@ -124,11 +126,16 @@ public class AvatarServiceImpl implements AvatarService {
         String suffix = FileUtil.getFileExtension(avatar.getFileName());
 
         if (suffix.isEmpty()) {
-            log.warn("请上传带有文件扩展名的图片");
-            throw new OssException("请上传带有文件扩展名的图片");
+            log.warn("用户:{} 上传的文件扩展名为空", userId);
+            throw new OssException("请上传带有扩展名的图片");
+        }
+        StorageTypeEnum currentStorage = provider.getCurrentStorageEnum();
+        AvatarEntity entity = avatarMapper.getAvatarByUserId(userId, currentStorage);
+        if (ObjectUtils.isEmpty(entity)) {
+            log.warn("用户:{} 在{}中没有找到头像信息", userId, currentStorage);
+            throw new OssException("头像无法进行修改");
         }
 
-        Long userId = avatar.getUserId();
         UploadFileDTO avatarDTO = UploadFileDTO.builder()
                 .userId(userId.toString())
                 .inputStream(avatar.getInputStream())
@@ -137,10 +144,11 @@ public class AvatarServiceImpl implements AvatarService {
                 .build();
 
         // 执行上传
+
         boolean uploadSuccess = getCurrentStorageService().uploadFile(avatarDTO);
         if (!uploadSuccess) {
-            log.warn("头像修改失败");
-            throw new OssException("上传失败");
+            log.warn("Service层:头像向 {} 存储失败", currentStorage);
+            throw new OssException("头像上传失败");
         }
 
         String conversion = FileUtil.conversion(avatar.getSize());
@@ -148,6 +156,7 @@ public class AvatarServiceImpl implements AvatarService {
         AvatarEntity avatarEntity = AvatarEntity.builder()
                 .userId(userId)
                 .folderPath(AVATAR_STORAGE_PATH)
+                .storageType(currentStorage)
                 .size(conversion)
                 .build();
         Integer row = avatarMapper.updateAvatar(avatarEntity);
@@ -199,15 +208,25 @@ public class AvatarServiceImpl implements AvatarService {
 
         StorageTypeEnum storageType = getCurrentStorageService().getStorageType();
         AvatarEntity avatarEntity = avatarMapper.getAvatarByUserId(userId, storageType);
-
+        if (ObjectUtils.isEmpty(avatarEntity)) {
+            log.warn("在{} 存储方式中不存在用户:{} 的头像", storageType, userId);
+            return Result.error("用户的头像信息无法获取");
+        }
         String avatarName = avatarEntity.getUserId() + avatarEntity.getSuffixName();
 
         String folderPath = avatarEntity.getFolderPath();
 
         String previewUrl = getCurrentStorageService().previewFile(avatarName, folderPath, VisibilityEnum.USER_AVATAR, userId.toString());
+
         return Result.ok(previewUrl);
     }
 
+    /**
+     * 预览本地用户头像
+     *
+     * @param userId 用户 ID
+     * @return 头像预览响应
+     */
     @Override
     public ResponseEntity<?> getLocalAvatar(Long userId) {
 
@@ -223,14 +242,14 @@ public class AvatarServiceImpl implements AvatarService {
 
             return ((LocalOssServiceImpl) getCurrentStorageService()).previewLocalAvatar(absolutePath);
         }
-        log.warn("错误操作 当前策略获取用户头像操作异常 userId:{}", userId);
+        log.warn("获取本地用户头像操作错误请重试 userId:{}",userId);
         throw new OssException("出现异常 请稍后尝试");
     }
 
     /**
      * 验证文件大小及文件类型
      *
-     * @param avatar 头像文件
+     * @param avatar 用户头像相关信息
      */
     private void validateAvatar(MultipartFileDTO avatar) {
         validateFileSize(avatar.getSize());

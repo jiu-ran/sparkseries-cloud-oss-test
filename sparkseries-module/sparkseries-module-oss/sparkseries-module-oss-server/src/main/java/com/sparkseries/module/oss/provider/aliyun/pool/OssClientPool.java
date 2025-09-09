@@ -8,7 +8,7 @@ import org.apache.commons.pool2.impl.GenericObjectPool;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 
 /**
- * OSS客户端连接池
+ * OSS 客户端连接池
  */
 public class OssClientPool {
 
@@ -32,22 +32,22 @@ public class OssClientPool {
     }
 
     /**
-     * 获取OSS客户端
+     * 获取 OSS 客户端
      *
-     * @return OSS客户端
+     * @return OSS 客户端
      */
     public OSS getClient() {
         try {
             return pool.borrowObject();
         } catch (Exception e) {
-            throw new OssException("获取OSS客户端失败", e);
+            throw new OssException("获取 OSS 客户端失败", e);
         }
     }
 
     /**
-     * 归还OSS客户端
+     * 归还 OSS 客户端
      *
-     * @param client OSS客户端
+     * @param client OSS 客户端
      */
     public void returnClient(OSS client) {
         if (client != null) {

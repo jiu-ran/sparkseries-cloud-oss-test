@@ -12,7 +12,7 @@ import org.apache.ibatis.annotations.Param;
 import java.util.List;
 
 /**
- * 文件元数据数据访问对象接口
+ * 文件元数据管理
  */
 @Mapper
 public interface MetadataMapper {
@@ -105,6 +105,7 @@ public interface MetadataMapper {
      * @param folderPath 文件路径
      * @param storageType 存储类型
      * @param visibility 能见度
+     * @param userId 用户 ID
      * @return 文件元数据列表
      */
     List<FileInfoVO> listFileByFolderPath(@Param("folderPath") String folderPath, @Param("storageType") StorageTypeEnum storageType,
@@ -123,7 +124,7 @@ public interface MetadataMapper {
     /**
      * 根据 ID 删除文件夹元数据
      *
-     * @param id 文件夹  ID
+     * @param id 文件夹 ID
      * @param storageType 存储类型
      * @param visibility 能见度
      * @return 删除的文件夹元数据数量
@@ -173,6 +174,7 @@ public interface MetadataMapper {
      * @param folderPath 文件夹路径
      * @param storageType 存储类型
      * @param visibility 能见度
+     * @param userId 用户 ID
      * @return 文件夹名称列表
      */
     List<String> listFolderNameByFolderPath(@Param("folderPath") String folderPath, @Param("storageType") StorageTypeEnum storageType,

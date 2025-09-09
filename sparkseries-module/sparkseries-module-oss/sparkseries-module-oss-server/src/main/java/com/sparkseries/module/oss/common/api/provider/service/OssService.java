@@ -15,7 +15,7 @@ public interface OssService {
      * 上传文件
      *
      * @param file 文件
-     * @return 操作成功返回 true，失败返回 false
+     * @return 操作结果
      */
     boolean uploadFile(UploadFileDTO file);
 
@@ -26,7 +26,7 @@ public interface OssService {
      * @param folderPath 文件夹路径
      * @param visibility 能见度
      * @param userId 用户 id
-     * @return 操作成功返回 true，失败返回 false
+     * @return 操作结果
      */
     boolean createFolder(String folderName, String folderPath, VisibilityEnum visibility, String userId);
 
@@ -37,7 +37,7 @@ public interface OssService {
      * @param folderPath 文件夹路径
      * @param visibility 能见度
      * @param userId 用户 id
-     * @return 操作成功返回 true，失败返回 false
+     * @return 操作结果
      */
     boolean deleteFile(String fileName, String folderPath, VisibilityEnum visibility, String userId);
 
@@ -48,7 +48,7 @@ public interface OssService {
      * @param folderPath 文件夹路径
      * @param visibility 能见度
      * @param userId 用户 id
-     * @return 操作成功返回 true，失败返回 false
+     * @return 操作结果
      */
     boolean deleteFolder(String folderName, String folderPath, VisibilityEnum visibility, String userId);
 
@@ -59,7 +59,7 @@ public interface OssService {
      * @param folderPath 文件夹路径
      * @param visibility 能见度
      * @param userId 用户 id
-     * @return 下载文件的url路径
+     * @return 文件下载 url
      */
     String downLoad(String fileName, String folderPath, VisibilityEnum visibility, String userId);
 
@@ -75,25 +75,25 @@ public interface OssService {
     FilesAndFoldersVO listFileAndFolder(String folderName, String folderPath, VisibilityEnum visibility, Long userId);
 
     /**
-     * 获取文件预览url
+     * 获取文件预览 url
      *
      * @param fileName 文件名
      * @param folderPath 文件夹路径
      * @param visibility 能见度
      * @param userId 用户 id
-     * @return 文件预览url
+     * @return 文件预览 url
      */
     String previewFile(String fileName, String folderPath, VisibilityEnum visibility, String userId);
 
     /**
-     * 移动文件从一个路径到另一个路径。
+     * 移动文件到另一个文件夹
      *
      * @param fileName 文件名
      * @param sourceFolderPath 源文件夹路径
      * @param targetFolderPath 目标文件夹路径
      * @param visibility 能见度
      * @param userId 用户 id
-     * @return 操作成功返回 true，失败返回 false
+     * @return 操作结果
      */
     boolean moveFile(String fileName, String sourceFolderPath, String targetFolderPath, VisibilityEnum visibility, String userId);
 

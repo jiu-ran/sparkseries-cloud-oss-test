@@ -16,39 +16,39 @@ import java.util.List;
 @Mapper
 public interface CloudConfigMapper {
     /**
-     * 添加OSS配置信息
+     * 添加 OSS 配置信息
      *
-     * @param ossConfigEntity OSS配置信息
+     * @param ossConfigEntity OSS 配置信息
      * @return 受影响行数
      */
     Integer insertOssConfig(@Param("ossConfigEntity") OssConfigEntity ossConfigEntity);
 
     /**
-     * 添加COS配置信息
+     * 添加 COS 配置信息
      *
-     * @param cosConfigEntity COS配置信息
+     * @param cosConfigEntity COS 配置信息
      * @return 受影响行数
      */
     Integer insertCosConfig(@Param("cosConfigEntity") CosConfigEntity cosConfigEntity);
 
     /**
-     * 添加KODO配置信息
+     * 添加 KODO 配置信息
      *
-     * @param kodoConfigEntity KODO配置信息
+     * @param kodoConfigEntity KODO 配置信息
      * @return 受影响行数
      */
     Integer insertKodoConfig(@Param("kodoConfigEntity") KodoConfigEntity kodoConfigEntity);
 
     /**
-     * 添加MinIO配置信息
+     * 添加 Minio 配置信息
      *
-     * @param minioConfigEntity MinIO配置信息
+     * @param minioConfigEntity Minio 配置信息
      * @return 受影响行数
      */
     Integer insertMinioConfig(@Param("minioConfigEntity") MinioConfigEntity minioConfigEntity);
 
     /**
-     * 删除OSS配置信息
+     * 删除 OSS 配置信息
      *
      * @param id id
      * @return 受影响行数
@@ -56,7 +56,7 @@ public interface CloudConfigMapper {
     Integer deleteOssConfigById(@Param("id") Long id);
 
     /**
-     * 删除COS配置信息
+     * 删除 COS 配置信息
      *
      * @param id id
      * @return 受影响行数
@@ -64,7 +64,7 @@ public interface CloudConfigMapper {
     Integer deleteCosConfigById(@Param("id") Long id);
 
     /**
-     * 删除KODO配置信息
+     * 删除 KODO 配置信息
      *
      * @param id id
      * @return 受影响行数
@@ -72,7 +72,7 @@ public interface CloudConfigMapper {
     Integer deleteKodoConfigById(@Param("id") Long id);
 
     /**
-     * 删除Minio配置信息
+     * 删除 Minio 配置信息
      *
      * @param id id
      * @return 受影响行数
@@ -80,64 +80,63 @@ public interface CloudConfigMapper {
     Integer deleteMinioConfigById(@Param("id") Long id);
 
     /**
-     * 根据id查询OSS配置信息
+     * 根据 id 查询 OSS 配置信息
      *
      * @param id id
-     * @return OSS配置信息
+     * @return OSS 配置信息
      */
     OssConfigEntity getOssConfigById(@Param("id") Long id);
 
     /**
-     * 根据id查询COS配置信息
+     * 根据 id 查询 COS 配置信息
      *
      * @param id id
-     * @return COS配置信息
+     * @return COS 配置信息
      */
     CosConfigEntity getCosConfigById(@Param("id") Long id);
 
     /**
-     * 根据id查询KODO配置信息
+     * 根据 id 查询 KODO 配置信息
      *
      * @param id id
-     * @return KODO配置信息
+     * @return KODO 配置信息
      */
     KodoConfigEntity getKodoConfigById(@Param("id") Long id);
 
     /**
-     * 根据id查询MinIO配置信息
+     * 根据 id 查询 Minio 配置信息
      *
      * @param id id
-     * @return MinIO配置信息
+     * @return MinIO 配置信息
      */
     MinioConfigEntity getMinioConfigById(@Param("id") Long id);
 
     /**
-     * 查询所有OSS配置信息
+     * 查询所有 OSS 配置信息
      *
-     * @return OSS配置信息
+     * @return OSS 配置信息
      */
     List<OssConfigEntity> listOssConfig();
 
     /**
-     * 查询所有COS配置信息
+     * 查询所有 COS 配置信息
      *
-     * @return COS配置信息
+     * @return COS 配置信息
      */
     List<CosConfigEntity> listCosConfig();
 
     /**
-     * 查询所有KODO配置信息
+     * 查询所有 KODO 配置信息
      *
-     * @return KODO配置信息
+     * @return KODO 配置信息
      */
     List<KodoConfigEntity> listKodoConfig();
 
     /**
-     * 查询所有MinIO配置信息
+     * 查询所有 Minio 配置信息
      *
-     * @return MinIO配置信息
+     * @return Minio 配置信息
      */
     List<MinioConfigEntity> listMinioConfig();
-
 
 }

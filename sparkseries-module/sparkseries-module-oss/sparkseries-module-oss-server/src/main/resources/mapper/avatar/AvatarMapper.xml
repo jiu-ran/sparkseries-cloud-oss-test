@@ -6,8 +6,8 @@
 <mapper namespace="com.sparkseries.module.oss.avatar.dao.AvatarMapper">
 
     <insert id="insertAvatar">
-        insert into user_avatar_metadata(user_id,suffix_name, folder_path, size, storage_type)
-        values (#{avatar.userId},#{avatar.suffixName},#{avatar.folderPath},#{avatar.size},#{avatar.storageType})
+        insert into user_avatar_metadata(user_id, suffix_name, folder_path, size, storage_type)
+        values (#{avatar.userId}, #{avatar.suffixName}, #{avatar.folderPath}, #{avatar.size}, #{avatar.storageType})
     </insert>
 
     <update id="updateAvatar">
@@ -15,6 +15,7 @@
         set suffix_name = #{avatar.suffixName}
             and size = #{avatar.size}
         where user_id = #{avatar.userId}
+          and storage_type = #{avatar.storageType}
     </update>
 
     <select id="getAvatarByUserId" resultType="com.sparkseries.module.oss.avatar.entity.AvatarEntity">

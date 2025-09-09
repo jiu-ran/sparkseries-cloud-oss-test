@@ -99,35 +99,6 @@ public class LocalOssServiceImpl implements OssService {
     }
 
     /**
-     * 上传头像文件
-     *
-     * @param avatar 头像文件信息
-     * @return 上传是否成功
-     */
-    @Override
-    public boolean uploadAvatar(UploadFileDTO avatar) {
-        String filename = avatar.getFileName();
-        Path targetPath = Paths.get(avatarPath, filename);
-        log.info("[上传头像操作] 开始上传头像到本地存储: {}", targetPath);
-
-
-        try {
-            boolean result = upload(avatar, targetPath);
-
-            if (result) {
-                log.info("[上传头像操作] 头像上传成功: {}", targetPath);
-                log.info("头像上传成功: 文件名='{}', 路径='{}'", avatar.getFileName(), targetPath);
-            } else {
-                log.error("[上传头像操作] 头像上传失败: {}", targetPath);
-            }
-            return result;
-        } catch (Exception e) {
-            log.error("[上传头像操作] 头像上传异常: {}", e.getMessage(), e);
-            throw new OssException("头像上传失败: " + e.getMessage());
-        }
-    }
-
-    /**
      * 创建文件夹
      *
      * @param folderName 文件夹名称

@@ -13,8 +13,10 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @Schema(description = "云服务激活信息")
 public class CloudActiveEntity {
-
+    @Schema(description = "云服务类型")
     public int type;
+    @Schema(description = "云服务 id")
     public Long id;
+    @Schema(description = "云服务状态")
     public int status;
 }

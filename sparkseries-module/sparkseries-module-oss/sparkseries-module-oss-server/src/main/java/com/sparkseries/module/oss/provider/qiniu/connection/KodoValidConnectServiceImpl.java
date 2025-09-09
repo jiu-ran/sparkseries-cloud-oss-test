@@ -16,15 +16,15 @@ import java.io.IOException;
 import java.io.InputStream;
 
 /**
- * Kodo连接验证服务实现类
+ * KODO 配置信息校验类
  */
 @Slf4j
 public class KodoValidConnectServiceImpl implements ValidConnectService {
     /**
-     * 获取KODO的配置文件
+     * 获取 KODO 的配置文件
      *
-     * @param config 接收到云服务配置文件
-     * @return 验证结果
+     * @param config 云服务配置信息
+     * @return 检验结果
      */
     @Override
     public boolean validConnect(CloudConfigDTO config) {
@@ -40,11 +40,11 @@ public class KodoValidConnectServiceImpl implements ValidConnectService {
     }
 
     /**
-     * KODO测试连接
+     * 测试 KODO 连接
      *
-     * @param accessKey KODO的AccessKey
-     * @param secretKey KODO的SecretKey
-     * @param bucketName KODO的bucketName
+     * @param accessKey KODO AccessKey
+     * @param secretKey KODO SecretKey
+     * @param bucketName KODO bucketName
      * @return 测试结果
      */
     public boolean connectTest(String accessKey, String secretKey, String bucketName) {

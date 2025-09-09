@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /**
- * 云存储配置控制器
+ * 云存储配置管理
  */
 @Validated
 @RestController
@@ -24,13 +24,13 @@ public class CloudConfigController {
     private final CloudConfigService cloudConfigService;
 
     /**
-     * 保存云存储配置信息
+     * 校验并保存云存储配置信息
      *
      * @param config 云存储配置信息
      * @return 保存结果
      */
     @PostMapping()
-    @Operation(summary = "保存云存储配置信息")
+    @Operation(summary = "校验并保存云存储配置信息")
     public Result<?> saveConfig(@RequestBody CloudConfigDTO config) {
 
         if (config.getTypeEnum() == null) {
@@ -43,7 +43,7 @@ public class CloudConfigController {
      * 删除指定类型的云服务配置信息
      *
      * @param type 云服务类型
-     * @param id   云服务ID
+     * @param id 云服务 ID
      * @return 删除结果
      */
     @DeleteMapping()

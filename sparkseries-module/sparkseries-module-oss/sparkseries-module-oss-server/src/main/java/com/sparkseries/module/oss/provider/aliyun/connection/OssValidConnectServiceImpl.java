@@ -21,16 +21,16 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * OSS连接有效性服务实现类
+ * OSS 配置信息校验类
  */
 @Slf4j
 public class OssValidConnectServiceImpl implements ValidConnectService {
 
     /**
-     * 获取OSS的配置文件
+     * 校验 OSS 的配置文件
      *
-     * @param config 接收到云服务配置文件
-     * @return 验证结果
+     * @param config 云服务配置信息
+     * @return 检验结果
      */
     @Override
     public boolean validConnect(CloudConfigDTO config) {
@@ -47,13 +47,14 @@ public class OssValidConnectServiceImpl implements ValidConnectService {
     }
 
     /**
-     * 测试OSS连接
+     * 测试 OSS 连接
      *
-     * @param endpoint OSS的域名
-     * @param accessKeyId OSS的AccessKeyId
-     * @param accessKeySecret OSS的AccessKeySecret
-     * @param bucketName OSS的BucketName
-     * @param region OSS的区域
+     * @param endpoint OSS 域名
+     * @param accessKeyId OSS AccessKeyId
+     * @param accessKeySecret OSS AccessKeySecret
+     * @param bucketName OSS BucketName
+     * @param region OSS 区域
+     *
      * @return 测试结果
      */
     public boolean connectTest(String endpoint, String accessKeyId, String accessKeySecret, String bucketName, String region) {

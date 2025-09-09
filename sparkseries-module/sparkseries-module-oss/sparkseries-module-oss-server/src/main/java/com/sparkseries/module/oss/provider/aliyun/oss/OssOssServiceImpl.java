@@ -35,7 +35,7 @@ import static com.sparkeries.enums.StorageTypeEnum.OSS;
 import static com.sparkeries.enums.VisibilityEnum.*;
 
 /**
- * 阿里云文件管理
+ *  OSS 文件管理
  */
 @Slf4j
 public class OssOssServiceImpl implements OssService {
@@ -60,7 +60,7 @@ public class OssOssServiceImpl implements OssService {
     }
 
     /**
-     * 上传文件到OSS
+     * 上传文件到 OSS
      *
      * @param file MultipartFile对象，包含要上传的文件数据
      * @return 如果文件上传成功，则返回true；否则返回false
