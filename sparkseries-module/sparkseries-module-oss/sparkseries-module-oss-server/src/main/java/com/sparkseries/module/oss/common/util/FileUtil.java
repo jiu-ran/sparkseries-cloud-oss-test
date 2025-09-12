@@ -195,7 +195,7 @@ public class FileUtil {
                 .filter(part -> !part.isEmpty())
                 .collect(Collectors.joining("/"));
 
-        return processed.isEmpty() ? "" : processed + "/";
+        return processed.isEmpty() ? "" : processed;
     }
 
     /**
@@ -286,5 +286,4 @@ public class FileUtil {
         isValidPath(normalized);
         return normalized;
     }
-
 }

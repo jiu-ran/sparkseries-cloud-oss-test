@@ -1,6 +1,7 @@
 package com.sparkseries.module.oss.file.controller;
 
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
+import com.baomidou.mybatisplus.core.toolkit.ObjectUtils;
 import com.sparkeries.enums.VisibilityEnum;
 import com.sparkseries.common.security.util.CurrentUser;
 import com.sparkseries.common.util.entity.Result;
@@ -48,8 +49,11 @@ public class FileController {
     @PostMapping("file")
     @Operation(summary = "文件上传")
     public Result<?> uploadFile(@RequestParam("files") @NotEmpty(message = "上传文件不能为空") List<MultipartFile> files,
-                                @RequestParam("folderPath") @NotBlank(message = "请输入文件的存储路径") String folderPath,
+                                @RequestParam("folderPath") String folderPath,
                                 @RequestParam(defaultValue = "PRIVATE") VisibilityEnum visibility) {
+        if (ObjectUtils.isEmpty(folderPath)) {
+            throw new OssException("请输入文件夹路径");
+        }
         Long userId = CurrentUser.getId();
         List<MultipartFileDTO> fileInfos = new ArrayList<>();
         Tika tika = new Tika();

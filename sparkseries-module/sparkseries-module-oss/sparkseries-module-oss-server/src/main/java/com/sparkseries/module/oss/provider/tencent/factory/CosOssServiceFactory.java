@@ -53,7 +53,7 @@ public class CosOssServiceFactory implements OssServiceFactory {
         Map<VisibilityEnum, String> map = new HashMap<>(3);
         map.put(VisibilityEnum.PUBLIC, cos.getPublicBucketName());
         map.put(VisibilityEnum.PRIVATE, cos.getPrivateBucketName());
-        map.put(VisibilityEnum.USER_AVATAR, cos.getUserInfoBucketName());
+        map.put(VisibilityEnum.USER_INFO, cos.getUserInfoBucketName());
         if (ObjectUtils.isEmpty(cos)) {
             throw new OssException("COS 该配置文件不存在 请先保存再进行切换");
         }
@@ -67,8 +67,8 @@ public class CosOssServiceFactory implements OssServiceFactory {
             throw new OssException("保存的COS存储配置失效了请重新保存");
         }
 
-        if (!new CosValidConnectServiceImpl().connectTest(cos.getSecretId(), cos.getSecretKey(), map.get(VisibilityEnum.USER_AVATAR), cos.getRegion())) {
-            log.warn("COS的桶 {} 测试失败", VisibilityEnum.USER_AVATAR);
+        if (!new CosValidConnectServiceImpl().connectTest(cos.getSecretId(), cos.getSecretKey(), map.get(VisibilityEnum.USER_INFO), cos.getRegion())) {
+            log.warn("COS的桶 {} 测试失败", VisibilityEnum.USER_INFO);
             throw new OssException("保存的COS存储配置失效了请重新保存");
         }
         CosClientPool cosClientPool = new CosClientPool(cos.getSecretId(), cos.getSecretKey(), cos.getRegion(), poolConfig);

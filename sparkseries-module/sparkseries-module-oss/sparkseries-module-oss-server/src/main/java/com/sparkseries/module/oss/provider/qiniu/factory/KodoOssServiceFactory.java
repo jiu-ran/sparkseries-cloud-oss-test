@@ -58,7 +58,7 @@ public class KodoOssServiceFactory implements OssServiceFactory {
         Map<VisibilityEnum, String> map = new HashMap<>(3);
         map.put(PUBLIC, kodo.getPublicBucketName());
         map.put(PRIVATE, kodo.getPrivateBucketName());
-        map.put(USER_AVATAR, kodo.getUserInfoBucketName());
+        map.put(USER_INFO, kodo.getUserInfoBucketName());
         if (!new KodoValidConnectServiceImpl().connectTest(kodo.getAccessKey(), kodo.getSecretKey(), map.get(PUBLIC))) {
             log.warn("KODO的桶 {} 测试失败", PUBLIC);
             throw new OssException("保存的KODO存储配置失效了请重新保存");
@@ -67,8 +67,8 @@ public class KodoOssServiceFactory implements OssServiceFactory {
             log.warn("KODO的桶 {} 测试失败", PRIVATE);
             throw new OssException("保存的KODO存储配置失效了请重新保存");
         }
-        if (!new KodoValidConnectServiceImpl().connectTest(kodo.getAccessKey(), kodo.getSecretKey(), map.get(USER_AVATAR))) {
-            log.warn("KODO的桶 {} 测试失败", USER_AVATAR);
+        if (!new KodoValidConnectServiceImpl().connectTest(kodo.getAccessKey(), kodo.getSecretKey(), map.get(USER_INFO))) {
+            log.warn("KODO的桶 {} 测试失败", USER_INFO);
             throw new OssException("保存的KODO存储配置失效了请重新保存");
         }
         KodoClientPool kodoClientPool = new KodoClientPool(kodo.getAccessKey(), kodo.getSecretKey(), poolConfig);

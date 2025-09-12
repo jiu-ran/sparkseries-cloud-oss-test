@@ -29,7 +29,6 @@ import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -41,29 +40,18 @@ import static com.sparkeries.constant.Constants.KODO_SIZE_THRESHOLD;
 import static com.sparkeries.enums.StorageTypeEnum.KODO;
 import static com.sparkeries.enums.StorageTypeEnum.LOCAL;
 import static com.sparkeries.enums.VisibilityEnum.*;
-import static org.aspectj.weaver.tools.cache.SimpleCacheFactory.path;
 
 /**
- * Kodo文件存储服务实现类 提供基于七牛云Kodo对象存储的文件操作服务，包括上传、下载、删除、重命名、移动、创建文件夹、列举文件等功能
+ * KODO 文件管理
  */
 @Slf4j
 public class KodoOssServiceImpl implements OssService {
 
-
     private final Map<VisibilityEnum, String> bucketName;
     private final MetadataMapper metadataMapper;
-    /**
-     * 七牛云存储配置 用于配置上传、下载等操作的区域、分片上传版本等
-     */
     private final Configuration config;
     private final KodoClientPool clientPool;
 
-    /**
-     * 构造函数，初始化Kodo存储服务
-     *
-     * @param clientPool Kodo客户端连接池
-     * @param bucketName 存储桶名称
-     */
     public KodoOssServiceImpl(KodoClientPool clientPool, Map<VisibilityEnum, String> bucketName, MetadataMapper metadataMapper) {
 
         log.info("[初始化Kodo存储服务] 开始初始化，存储桶: {}", bucketName);
@@ -87,21 +75,22 @@ public class KodoOssServiceImpl implements OssService {
                 Files.delete(tempFile.toPath());
             } catch (IOException e) {
                 log.warn("临时文件删除失败: {}", tempFile.getAbsolutePath(), e);
+                throw new OssException("临时文件删除失败");
             }
         }
     }
 
     /**
-     * 上传文件到Kodo存储
+     * 上传文件
      *
-     * @param file 要上传的文件信息
-     * @return 上传是否成功
+     * @param file 文件信息
+     * @return 操作结果
      */
     @Override
     public boolean uploadFile(UploadFileDTO file) {
         String filename = file.getFileName();
         String folderPath = file.getFolderPath();
-        String absolutePath = Path.of(folderPath, filename).toString();
+        String absolutePath = String.join("/",folderPath, filename);
         VisibilityEnum visibility = file.getVisibility();
         Auth client = null;
         try {
@@ -110,7 +99,7 @@ public class KodoOssServiceImpl implements OssService {
             log.debug("[上传文件操作] 成功获取Kodo客户端连接，开始上传文件");
 
             String bucketName = getBucketName(visibility);
-            String targetPath = getTargetPath(absolutePath, visibility, file.getUserId()).toString();
+            String targetPath = getTargetPath(absolutePath, visibility, file.getUserId());
             String uploadToken = client.uploadToken(bucketName, targetPath);
             UploadManager uploadManager = new UploadManager(config);
 
@@ -123,7 +112,7 @@ public class KodoOssServiceImpl implements OssService {
                 return uploadSmallFile(uploadManager, file, uploadToken, targetPath);
             }
         } catch (Exception e) {
-            log.error("Kodo文件上传失败: {}", e.getMessage(), e);
+            log.warn("Kodo文件上传失败: {}", e.getMessage(), e);
             throw new OssException("KODO上传失败: " + e.getMessage());
         } finally {
             if (client != null) {
@@ -140,12 +129,12 @@ public class KodoOssServiceImpl implements OssService {
      * @param folderPath 文件夹路径
      * @param visibility 文件夹可见性
      * @param userId 用户 ID
-     * @return 创建是否成功
+     * @return 操作结果
      */
     @Override
     public boolean createFolder(String folderName, String folderPath, VisibilityEnum visibility, String userId) {
-        String absolutePath = Path.of(folderPath, folderName).toString();
-        String targetPath = getTargetPath(absolutePath, visibility, userId).toString();
+        String absolutePath = String.join("/",folderPath, folderName);
+        String targetPath = getTargetPath(absolutePath, visibility, userId);
         String bucketName = getBucketName(visibility);
         log.info("[创建文件夹操作] 开始创建文件夹: {}", targetPath);
         Auth client = null;
@@ -165,21 +154,22 @@ public class KodoOssServiceImpl implements OssService {
             Response response = uploadManager.put(emptyData, targetPath, uploadToken);
 
             if (!response.isOK()) {
+                log.warn("[创建文件夹操作] 文件夹创建失败: {}, 错误: {}", targetPath, response.error);
                 throw new OssException("文件夹创建失败: " + response.error);
             }
             log.info("[创建文件夹操作] 文件夹创建成功: {}", targetPath);
 
         } catch (OssException e) {
-            log.error("[创建文件夹操作] 文件夹创建失败: {}, 错误: {}", targetPath, e.getMessage());
+            log.warn("[创建文件夹操作] 文件夹创建失败: {}, 错误: {}", targetPath, e.getMessage());
             throw new OssException("文件夹:" + "创建失败" + e.getMessage());
         } catch (QiniuException e) {
             if (e.code() == 612) {
                 log.debug("[创建文件夹操作] 目录 {} 不存在", targetPath);
             }
-            log.error("[创建文件夹操作] 七牛云异常: {}, 错误码: {}", e.getMessage(), e.code());
+            log.warn("[创建文件夹操作] 七牛云异常: {}, 错误码: {}", e.getMessage(), e.code());
         } catch (Exception e) {
-            log.error("[创建文件夹操作] 创建文件夹时发生未知异常: {}", e.getMessage(), e);
-            throw new RuntimeException(e);
+            log.warn("[创建文件夹操作] 创建文件夹时发生未知异常: {}", e.getMessage(), e);
+            throw new OssException("创建文件夹时发生未知异常");
         } finally {
             if (client != null) {
                 log.debug("[创建文件夹操作] 归还Kodo客户端连接到连接池");
@@ -196,11 +186,11 @@ public class KodoOssServiceImpl implements OssService {
      * @param folderPath 文件夹路径
      * @param visibility 文件可见性
      * @param userId 用户 ID
-     * @return 删除是否成功
+     * @return 操作结果
      */
     @Override
     public boolean deleteFile(String fileName, String folderPath, VisibilityEnum visibility, String userId) {
-        String absolutePath = Path.of(folderPath, fileName).toString();
+        String absolutePath = String.join("/",folderPath, fileName);
         String bucketName = getBucketName(visibility);
         log.info("[删除文件操作] 开始删除文件: {}", absolutePath);
         Auth client = null;
@@ -214,12 +204,12 @@ public class KodoOssServiceImpl implements OssService {
             log.info("[删除文件操作] 文件删除成功: {}", absolutePath);
             return true;
         } catch (OssException | QiniuException e) {
-            log.error("[删除文件操作] KODO中删除文件失败: {}, 错误: {}", absolutePath,
+            log.warn("[删除文件操作] KODO中删除文件失败: {}, 错误: {}", absolutePath,
                     e.getMessage());
             throw new OssException("KODO中删除文件失败");
         } catch (Exception e) {
-            log.error("[删除文件操作] 删除文件时发生未知异常: {}", e.getMessage(), e);
-            throw new RuntimeException(e);
+            log.warn("[删除文件操作] 删除文件时发生未知异常: {}", e.getMessage(), e);
+            throw new OssException("删除文件时发生未知异常");
         } finally {
             if (client != null) {
                 log.debug("[删除文件操作] 归还Kodo客户端连接到连接池");
@@ -236,13 +226,13 @@ public class KodoOssServiceImpl implements OssService {
      * @param folderPath 文件夹路径
      * @param visibility 文件可见性
      * @param userId 用户 ID
-     * @return 删除是否成功
+     * @return 操作结果
      */
     @Override
     public boolean deleteFolder(String folderName, String folderPath, VisibilityEnum visibility, String userId) {
 
-        String absolutePath = Path.of(folderPath, folderName).toString();
-        String targetPath = getTargetPath(absolutePath, visibility, userId).toString();
+        String absolutePath = String.join("/",folderPath, folderName);
+        String targetPath = getTargetPath(absolutePath, visibility, userId);
         String bucketName = getBucketName(visibility);
         log.info("[删除文件夹操作] 开始删除文件夹: {}", targetPath);
         Auth client = null;
@@ -253,7 +243,7 @@ public class KodoOssServiceImpl implements OssService {
 
             BucketManager bucketManager = new BucketManager(client, config);
             // 列出文件夹下的所有对象
-            List<String> keysToDelete = listFolderObjects(targetPath,visibility);
+            List<String> keysToDelete = listFolderObjects(targetPath, visibility);
             if (keysToDelete.isEmpty()) {
                 log.info("文件夹 {} 下无内容", targetPath);
                 return true;
@@ -274,11 +264,11 @@ public class KodoOssServiceImpl implements OssService {
             return true;
 
         } catch (QiniuException e) {
-            log.error("[删除文件夹操作] 删除文件夹 {} 失败: {}", targetPath, e.getMessage());
-            throw new RuntimeException("删除文件夹失败: " + e.getMessage(), e);
+            log.warn("[删除文件夹操作] 删除文件夹 {} 失败: {}", targetPath, e.getMessage());
+            throw new OssException("删除文件夹失败: " + e.getMessage(), e);
         } catch (Exception e) {
-            log.error("[删除文件夹操作] 删除文件夹时发生未知异常: {}", e.getMessage(), e);
-            throw new RuntimeException(e);
+            log.warn("[删除文件夹操作] 删除文件夹时发生未知异常: {}", e.getMessage(), e);
+            throw new OssException("删除文件夹时发生未知异常");
         } finally {
             if (client != null) {
                 log.debug("[删除文件夹操作] 归还Kodo客户端连接到连接池");
@@ -298,8 +288,8 @@ public class KodoOssServiceImpl implements OssService {
      */
     @Override
     public String downLoad(String fileName, String folderPath, VisibilityEnum visibility, String userId) {
-        String absolutePath = Path.of(folderPath, fileName).toString();
-        String targetPath = getTargetPath(absolutePath, visibility, userId).toString();
+        String absolutePath = String.join("/",folderPath, fileName);
+        String targetPath = getTargetPath(absolutePath, visibility, userId);
         String bucketName = getBucketName(visibility);
         log.info("[下载文件操作] 开始生成文件:{}下载链接", targetPath);
         Auth client = null;
@@ -326,8 +316,8 @@ public class KodoOssServiceImpl implements OssService {
             log.info("[下载文件操作] 生成下载 URL 成功: {}", downloadUrl);
             return downloadUrl;
         } catch (Exception e) {
-            log.error("[下载文件操作] 生成下载链接时发生异常: {}", e.getMessage(), e);
-            throw new RuntimeException(e);
+            log.warn("[下载文件操作] 生成下载链接时发生异常: {}", e.getMessage(), e);
+            throw new OssException("生成下载链接时发生异常");
         } finally {
             if (client != null) {
                 log.debug("[下载文件操作] 归还Kodo客户端连接到连接池");
@@ -344,11 +334,12 @@ public class KodoOssServiceImpl implements OssService {
      * @param folderPath 文件夹路径
      * @param visibility 文件可见性
      * @param userId 用户 ID
-     * @return 包含文件和文件夹信息的VO对象
+     * @return 文件和文件夹信息列表
      */
     @Override
     public FilesAndFoldersVO listFileAndFolder(String folderName, String folderPath, VisibilityEnum visibility, Long userId) {
-        String absolutePath = Path.of(folderPath, folderName).toString();
+
+        String absolutePath = String.join("/",folderPath, folderName);
 
         log.info("[列出文件操作] 开始列出路径下的文件和文件夹: {}", absolutePath);
 
@@ -364,35 +355,36 @@ public class KodoOssServiceImpl implements OssService {
     /**
      * 生成文件预览链接
      *
-     * @param fileName 文件绝对路径
-     * @param folderPath
-     * @param visibility
-     * @param userId
+     * @param fileName 文件名
+     * @param folderPath 文件夹路径
+     * @param visibility 文件可见性
+     * @param userId 用户 ID
      * @return 预览链接
      */
     @Override
     public String previewFile(String fileName, String folderPath, VisibilityEnum visibility, String userId) {
-        String absolutePath = Path.of(folderPath, fileName).toString();
+        String absolutePath = String.join("/",folderPath, fileName);
         String bucketName = getBucketName(visibility);
-        log.info("[预览文件操作] 开始生成预览链接: {}", fileName);
+        String targetPath = getTargetPath(absolutePath, visibility, userId);
+        log.info("[预览文件操作] 开始生成预览链接: {}", targetPath);
         Auth client = null;
         int expiryInSeconds = 300;
         try {
             log.debug("[预览文件操作] 从连接池获取Kodo客户端连接");
             client = clientPool.getClient();
             log.debug("[预览文件操作] 成功获取Kodo客户端连接，开始生成预览链接");
-            String baseUrl = getBaseUrl(fileName, client, bucketName);
+            String baseUrl = getBaseUrl(targetPath, client, bucketName);
             log.debug("[预览文件操作] 构建 base URL: {}", baseUrl);
 
             // 3. 生成带签名的下载 URL (预签名 URL)
             String signedUrl = client.privateDownloadUrl(baseUrl, expiryInSeconds);
 
-            log.info("[预览文件操作] 成功为文件 '{}' 生成预签名 URL，有效期 {} 秒。", fileName,
+            log.info("[预览文件操作] 成功为文件 '{}' 生成预签名 URL，有效期 {} 秒。", targetPath,
                     expiryInSeconds);
             return signedUrl;
 
         } catch (Exception e) {
-            log.error("[预览文件操作] 生成预签名URL失败: {}", e.getMessage(), e);
+            log.warn("[预览文件操作] 生成预签名URL失败: {}", e.getMessage(), e);
             throw new OssException("错误");
         } finally {
             if (client != null) {
@@ -406,15 +398,20 @@ public class KodoOssServiceImpl implements OssService {
     /**
      * 移动文件
      *
-     * @return 移动是否成功
+     * @param fileName 文件名
+     * @param sourceFolderPath 源文件夹路径
+     * @param targetFolderPath 目标文件夹路径
+     * @param visibility 文件可见性
+     * @param userId 用户 ID
+     * @return 操作结果
      */
     @Override
     public boolean moveFile(String fileName, String sourceFolderPath, String targetFolderPath, VisibilityEnum visibility, String userId) {
-        String sourceAbsolutePath = Path.of(sourceFolderPath, fileName).toString();
-        String targetAbsolutePath = Path.of(targetFolderPath, fileName).toString();
+        String sourceAbsolutePath = String.join("/",sourceFolderPath, fileName);
+        String targetAbsolutePath = String.join("/",targetFolderPath, fileName);
         String bucketName = getBucketName(visibility);
-        String sourcePath = getTargetPath(sourceAbsolutePath, visibility, userId).toString();
-        String targetPath = getTargetPath(targetAbsolutePath, visibility, userId).toString();
+        String sourcePath = getTargetPath(sourceAbsolutePath, visibility, userId);
+        String targetPath = getTargetPath(targetAbsolutePath, visibility, userId);
         log.info("[移动文件操作] 开始移动文件: {} -> {}", sourcePath, targetPath);
         Auth client = null;
         Response response;
@@ -444,22 +441,22 @@ public class KodoOssServiceImpl implements OssService {
                             sourcePath, targetPath);
                 } else {
                     // 删除失败，记录错误信息
-                    log.error(
-                            "[移动文件操作] KODO 删除源文件失败，源Key: [{}]. StatusCode: [{}], ErrorMessage: [{}].",
+                    log.warn(
+                            "[移动文件操作] KODO 删除源文件失败，源Key: [{}]. StatusCode: [{}], warnMessage: [{}].",
                             sourcePath, response.statusCode, response.getInfo());
                     // 注意：此时文件已复制到新位置，但源文件未删除，需要根据业务决定如何处理（例如记录待清理列表）
                 }
             } else {
                 // 复制失败，记录错误信息
-                log.error(
-                        "[移动文件操作] KODO 复制文件失败，从 [{}] 到 [{}]. StatusCode: [{}], ErrorMessage: [{}].",
+                log.warn(
+                        "[移动文件操作] KODO 复制文件失败，从 [{}] 到 [{}]. StatusCode: [{}], warnMessage: [{}].",
                         sourcePath, targetPath, response.statusCode,
                         response.getInfo());
             }
             return true;
         } catch (Exception e) {
-            log.error("[移动文件操作] 移动文件时发生异常: {}", e.getMessage(), e);
-            throw new RuntimeException(e);
+            log.warn("[移动文件操作] 移动文件时发生异常: {}", e.getMessage(), e);
+            throw new OssException("移动文件时发生异常");
         } finally {
             if (client != null) {
                 log.debug("[移动文件操作] 归还Kodo客户端连接到连接池");
@@ -486,7 +483,7 @@ public class KodoOssServiceImpl implements OssService {
      * @param file 文件信息
      * @param uploadToken 上传令牌
      * @param targetPath 目标路径
-     * @return 上传是否成功
+     * @return 操作结果
      */
     private boolean uploadSmallFile(UploadManager uploadManager, UploadFileDTO file,
                                     String uploadToken, String targetPath) {
@@ -498,7 +495,7 @@ public class KodoOssServiceImpl implements OssService {
                     null, null);
 
             if (!response.isOK()) {
-                log.error("直接上传失败: 文件路径={}, 错误信息: {}", targetPath, response.error);
+                log.warn("直接上传失败: 文件路径={}, 错误信息: {}", targetPath, response.error);
                 throw new OssException("直接上传失败: " + response.error);
             }
 
@@ -516,7 +513,7 @@ public class KodoOssServiceImpl implements OssService {
      * @param file 文件信息
      * @param uploadToken 上传令牌
      * @param absolutePath 文件绝对路径
-     * @return 上传是否成功
+     * @return 操作结果
      */
     private boolean uploadLargeFile(UploadManager uploadManager, UploadFileDTO file,
                                     String uploadToken, String absolutePath) {
@@ -537,7 +534,7 @@ public class KodoOssServiceImpl implements OssService {
             Response response = uploadManager.put(tempFile, absolutePath, uploadToken, null, null,
                     false);
             if (!response.isOK()) {
-                log.error("分片上传失败: 文件路径={}, 错误信息: {}", absolutePath, response.error);
+                log.warn("分片上传失败: 文件路径={}, 错误信息: {}", absolutePath, response.error);
                 throw new OssException("分片上传失败: " + response.error);
             }
 
@@ -559,7 +556,8 @@ public class KodoOssServiceImpl implements OssService {
      * @return 文件夹是否存在
      */
     public boolean isFolderExists(String folderPath, String bucketName) {
-        log.debug("[检查文件夹存在性] 开始检查文件夹是否存在: {}", path);
+
+        log.debug("[检查文件夹存在性] 开始检查文件夹是否存在: {}", folderPath);
 
         Auth client = null;
         try {
@@ -567,22 +565,22 @@ public class KodoOssServiceImpl implements OssService {
             client = clientPool.getClient();
             log.debug("[检查文件夹存在性] 成功获取Kodo客户端连接，开始检查文件夹");
             BucketManager bucketManager = new BucketManager(client, config);
-            FileInfo stat = bucketManager.stat(bucketName, path);
+            FileInfo stat = bucketManager.stat(bucketName, folderPath);
 
-            log.debug("[检查文件夹存在性] 目录 {} 存在", path);
+            log.debug("[检查文件夹存在性] 目录 {} 存在", folderPath);
             return true;
         } catch (QiniuException e) {
             // 612 表示对象不存在
 
             if (e.code() == 612) {
-                log.debug("[检查文件夹存在性] 目录 {} 不存在", path);
+                log.debug("[检查文件夹存在性] 目录 {} 不存在", folderPath);
                 return false;
             }
-            log.error("[检查文件夹存在性] 检查目录 {} 存在性失败: {}", path, e.getMessage());
-            throw new RuntimeException("检查目录存在性失败: " + e.getMessage(), e);
+            log.warn("[检查文件夹存在性] 检查目录 {} 存在性失败: {}", folderPath, e.getMessage());
+            throw new OssException("检查目录存在性失败: " + e.getMessage(), e);
         } catch (Exception e) {
-            log.error("[检查文件夹存在性] 检查文件夹存在性时发生未知异常: {}", e.getMessage(), e);
-            throw new RuntimeException(e);
+            log.warn("[检查文件夹存在性] 检查文件夹存在性时发生未知异常: {}", e.getMessage(), e);
+            throw new OssException("检查文件夹存在性时发生未知异常");
         } finally {
             if (client != null) {
                 log.debug("[检查文件夹存在性] 归还Kodo客户端连接到连接池");
@@ -596,9 +594,8 @@ public class KodoOssServiceImpl implements OssService {
      *
      * @param folderPath 文件夹路径
      * @return 对象路径列表
-     * @throws QiniuException 七牛云异常
      */
-    private List<String> listFolderObjects(String folderPath,VisibilityEnum visibility) throws QiniuException {
+    private List<String> listFolderObjects(String folderPath, VisibilityEnum visibility) {
         log.debug("[列出文件夹对象] 开始列出文件夹下的所有对象: {}", folderPath);
         Auth client = null;
         String bucketName = getBucketName(visibility);
@@ -626,8 +623,8 @@ public class KodoOssServiceImpl implements OssService {
                     keys.size());
             return keys;
         } catch (Exception e) {
-            log.error("[列出文件夹对象] 列出文件夹对象时发生异常: {}", e.getMessage(), e);
-            throw new RuntimeException(e);
+            log.warn("[列出文件夹对象] 列出文件夹对象时发生异常: {}", e.getMessage(), e);
+            throw new OssException("列出文件夹对象时发生异常");
         } finally {
             if (client != null) {
                 log.debug("[列出文件夹对象] 归还Kodo客户端连接到连接池");
@@ -636,6 +633,14 @@ public class KodoOssServiceImpl implements OssService {
         }
     }
 
+    /**
+     * 获取文件访问地址
+     *
+     * @param absolutePath 文件绝对路径
+     * @param client Kodo 客户端
+     * @param bucketName 存储桶名称
+     * @return 文件访问地址
+     */
     private String getBaseUrl(String absolutePath, Auth client, String bucketName)
             throws EncoderException, QiniuException {
         URLCodec codec = new URLCodec();
@@ -661,13 +666,21 @@ public class KodoOssServiceImpl implements OssService {
      * @param userId 用户ID
      * @return 目标路径
      */
-    public Path getTargetPath(String absolutePath, VisibilityEnum visibility, String userId) {
+    public String getTargetPath(String absolutePath, VisibilityEnum visibility, String userId) {
+
+        if (absolutePath.startsWith("/")) {
+            absolutePath = absolutePath.substring(1);
+        }
+        if (absolutePath.endsWith("/")) {
+            absolutePath = absolutePath.substring(0, absolutePath.length() - 1);
+        }
+
         if (visibility == PRIVATE) {
-            return Path.of(userId, absolutePath);
+            return String.join("/", userId, absolutePath);
         } else if (visibility == PUBLIC) {
-            return Path.of(absolutePath);
-        } else if (visibility == USER_AVATAR) {
-            return Path.of(AVATAR_STORAGE_PATH, absolutePath);
+            return String.join("/", absolutePath);
+        } else if (visibility == USER_INFO) {
+            return String.join("/", AVATAR_STORAGE_PATH, absolutePath);
         }
         log.warn("错误操作");
         throw new OssException("错误操作");
@@ -684,8 +697,8 @@ public class KodoOssServiceImpl implements OssService {
             return bucketName.get(PRIVATE);
         } else if (visibility == PUBLIC) {
             return bucketName.get(PUBLIC);
-        } else if (visibility == USER_AVATAR) {
-            return bucketName.get(USER_AVATAR);
+        } else if (visibility == USER_INFO) {
+            return bucketName.get(USER_INFO);
         } else {
             log.warn("错误操作");
             throw new OssException("错误操作");

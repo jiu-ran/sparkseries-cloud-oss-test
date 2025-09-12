@@ -56,7 +56,7 @@ public class OssOssServiceFactory implements OssServiceFactory {
         Map<VisibilityEnum, String> map = new HashMap<>(3);
         map.put(PUBLIC, oss.getPublicBucketName());
         map.put(PRIVATE, oss.getPrivateBucketName());
-        map.put(USER_AVATAR, oss.getUserInfoBucketName());
+        map.put(USER_INFO, oss.getUserInfoBucketName());
         if (ObjectUtils.isEmpty(oss)) {
             log.error("OSS 配置信息错误 OSS 存储服务初始化失败 错误信息:{}", "请检查OSS配置信息");
             throw new OssException("OSS 该配置文件不存在 请先保存再进行切换");
@@ -70,8 +70,8 @@ public class OssOssServiceFactory implements OssServiceFactory {
             log.warn("OSS的桶 {} 测试失败", PRIVATE);
             throw new OssException("保存的OSS存储配置失效了请重新保存");
         }
-        if (!new OssValidConnectServiceImpl().connectTest(oss.getEndpoint(), oss.getAccessKeyId(), oss.getAccessKeySecret(), map.get(USER_AVATAR), oss.getRegion())) {
-            log.warn("OSS的桶 {} 测试失败", USER_AVATAR);
+        if (!new OssValidConnectServiceImpl().connectTest(oss.getEndpoint(), oss.getAccessKeyId(), oss.getAccessKeySecret(), map.get(USER_INFO), oss.getRegion())) {
+            log.warn("OSS的桶 {} 测试失败", USER_INFO);
             throw new OssException("保存的OSS存储配置失效了请重新保存");
         }
 

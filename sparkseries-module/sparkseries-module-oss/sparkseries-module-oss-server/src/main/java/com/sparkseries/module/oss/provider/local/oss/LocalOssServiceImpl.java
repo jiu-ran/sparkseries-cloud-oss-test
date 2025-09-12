@@ -33,7 +33,7 @@ import static com.sparkeries.constant.Constants.LOCAL_SIZE_THRESHOLD;
 import static com.sparkeries.enums.StorageTypeEnum.LOCAL;
 
 /**
- * 本地文件存储服务实现类
+ * 本地文件管理
  */
 @Slf4j
 @Service("local")
@@ -76,10 +76,11 @@ public class LocalOssServiceImpl implements OssService {
      */
     @Override
     public boolean uploadFile(UploadFileDTO file) {
-        Path absolutePath = Path.of(file.getFolderPath(), file.getFileName());
+        String absolutePath = Path.of(file.getFolderPath(), file.getFileName()).toString();
+
         log.info("[上传文件操作] 开始上传文件到本地存储: {}", absolutePath);
 
-        Path targetPath = getTargetPath(String.valueOf(absolutePath), file.getVisibility(), file.getUserId());
+        Path targetPath = getTargetPath(absolutePath, file.getVisibility(), file.getUserId());
 
         log.info("本地存储开始上传文件 - 文件名: {}, 大小: {}, 目标路径: {}", file.getFileName(), file.getSize(), targetPath);
 
@@ -92,9 +93,9 @@ public class LocalOssServiceImpl implements OssService {
 
         } catch (Exception e) {
 
-            log.error("[上传文件操作] 文件上传失败: {}", e.getMessage(), e);
-            log.error("本地存储文件上传失败 - 文件名: {}, 路径: {},错误信息: {}", file.getFileName(), targetPath, e.getMessage(), e);
-            throw new OssException("文件本地存储失败: " + e.getMessage());
+            log.warn("[上传文件操作] 文件上传失败: {}", e.getMessage(), e);
+            log.warn("本地存储文件上传失败 - 文件: {}", targetPath);
+            throw new OssException("文件本地存储失败");
         }
     }
 
@@ -125,13 +126,12 @@ public class LocalOssServiceImpl implements OssService {
             log.debug("开始创建目录（包含父目录）");
             Files.createDirectories(targetPath);
 
-
             log.info("本地存储目录创建成功 - 路径: {},", targetPath);
             return true;
         } catch (IOException e) {
 
-            log.error("[创建文件夹操作] 创建文件夹失败: {}", e.getMessage(), e);
-            log.error("本地存储目录创建失败 - 路径: {}, 错误信息: {}", absolutePath, e.getMessage(), e);
+            log.warn("[创建文件夹操作] 创建文件夹失败: {}", e.getMessage(), e);
+            log.warn("本地存储目录创建失败 - 路径: {}, 错误信息: {}", absolutePath, e.getMessage(), e);
             throw new OssException("创建目录失败: " + e.getMessage());
         }
     }
@@ -164,7 +164,7 @@ public class LocalOssServiceImpl implements OssService {
             log.debug("开始删除文件");
             boolean result = Files.deleteIfExists(targetPath);
             if (!result) {
-                log.error("文件删除操作返回false: {}", targetPath);
+                log.warn("文件删除操作返回false: {}", targetPath);
                 throw new OssException("文件删除失败");
             }
 
@@ -173,8 +173,8 @@ public class LocalOssServiceImpl implements OssService {
             return true;
         } catch (IOException e) {
 
-            log.error("[删除文件操作] 删除文件失败: {}", e.getMessage(), e);
-            log.error("本地存储文件删除失败 - 路径: {}, 错误信息: {}", absolutePath, e.getMessage(), e);
+            log.warn("[删除文件操作] 删除文件失败: {}", e.getMessage(), e);
+            log.warn("本地存储文件删除失败 - 路径: {}, 错误信息: {}", absolutePath, e.getMessage(), e);
             throw new OssException("文件删除失败: " + e.getMessage());
         }
     }
@@ -227,7 +227,7 @@ public class LocalOssServiceImpl implements OssService {
                         deletedCount[0]++;
                         log.debug("成功删除路径: {}", p);
                     } catch (IOException e) {
-                        log.error("删除路径失败: {}, 错误信息: {}", absolutePath, e.getMessage(), e);
+                        log.warn("删除路径失败: {}, 错误信息: {}", absolutePath, e.getMessage(), e);
                         // 在 forEach 中抛出异常会中断流，可以考虑在此处记录错误并继续，
                         // 或者使用 AtomicBoolean 标记失败状态
                         throw new RuntimeException("删除文件失败: " + absolutePath, e); // Rethrow as RuntimeException to break walk
@@ -239,8 +239,8 @@ public class LocalOssServiceImpl implements OssService {
             log.info("本地存储文件夹删除成功 - 路径: {}, 删除项目数: {}, 总大小: {} bytes", targetPath, deletedCount[0], totalSize[0]);
             return true;
         } catch (IOException e) {
-            log.error("[删除文件夹操作] 删除文件夹失败: {}", e.getMessage(), e);
-            log.error("本地存储文件夹删除失败 - 路径: {}, 错误信息: {}", targetPath, e.getMessage(), e);
+            log.warn("[删除文件夹操作] 删除文件夹失败: {}", e.getMessage(), e);
+            log.warn("本地存储文件夹删除失败 - 路径: {}, 错误信息: {}", targetPath, e.getMessage(), e);
             throw new OssException("文件夹删除失败: " + e.getMessage());
         }
     }
@@ -342,8 +342,8 @@ public class LocalOssServiceImpl implements OssService {
             return true;
         } catch (IOException e) {
             long duration = System.currentTimeMillis() - startTime;
-            log.error("[移动文件操作] 移动文件失败: {}", e.getMessage(), e);
-            log.error("本地存储文件移动失败 - 源路径: {}, 目标路径: {}, 耗时: {} ms, 错误信息: {}", sourceFolderPath, targetFolderPath, duration, e.getMessage(), e);
+            log.warn("[移动文件操作] 移动文件失败: {}", e.getMessage(), e);
+            log.warn("本地存储文件移动失败 - 源路径: {}, 目标路径: {}, 耗时: {} ms, 错误信息: {}", sourceFolderPath, targetFolderPath, duration, e.getMessage(), e);
             return false;
         }
     }
@@ -387,7 +387,7 @@ public class LocalOssServiceImpl implements OssService {
             log.info("文件下载url获取成功");
             return body;
         } catch (IOException | EncoderException e) {
-            log.error("[下载文件操作] 文件下载失败: {}", e.getMessage(), e);
+            log.warn("[下载文件操作] 文件下载失败: {}", e.getMessage(), e);
             throw new RuntimeException(e);
         }
     }
@@ -402,18 +402,21 @@ public class LocalOssServiceImpl implements OssService {
      */
     public ResponseEntity<?> previewLocalFile(FileMetadataEntity fileMetadataEntity, VisibilityEnum visibility, String userId) {
 
-        String path = fileMetadataEntity.getFolderPath();
+        String folderPath = fileMetadataEntity.getFolderPath();
 
         String filename = fileMetadataEntity.getFileName();
 
-        Path targetPath = getTargetPath(path + filename, visibility, userId);
+        Path targetPath = getTargetPath(folderPath + filename, visibility, userId);
 
         try {
             URLCodec codec = new URLCodec();
 
             String contentType = Files.probeContentType(targetPath);
+
             String finalContentType = contentType.startsWith("text/") ? contentType + ";charset=UTF-8" : contentType;
+
             Resource resource = new UrlResource(targetPath.toUri());
+
             ResponseEntity<Resource> body = ResponseEntity.ok().contentType(MediaType.parseMediaType(finalContentType))
                     .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename*=UTF-8''" + codec.encode(filename)).body(resource);
             log.info("文件预览url获取成功");
@@ -507,7 +510,7 @@ public class LocalOssServiceImpl implements OssService {
 
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
-            log.error("小文件上传失败 - 文件名: {}, 耗时: {} ms, 错误信息: {}", filename, duration, e.getMessage(), e);
+            log.warn("小文件上传失败 - 文件名: {}, 耗时: {} ms, 错误信息: {}", filename, duration, e.getMessage(), e);
             // 清理临时文件
             cleanupTempFile(tempPath);
             throw new OssException("小文件上传失败: " + e.getMessage());
@@ -570,7 +573,7 @@ public class LocalOssServiceImpl implements OssService {
 
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
-            log.error("大文件分块上传失败 - 文件名: {}, 耗时: {} ms, 错误信息: {}", filename, duration, e.getMessage(), e);
+            log.warn("大文件分块上传失败 - 文件名: {}, 耗时: {} ms, 错误信息: {}", filename, duration, e.getMessage(), e);
             // 清理临时文件
             cleanupTempFile(tempPath);
             throw new OssException("大文件分块上传失败: " + e.getMessage());
@@ -613,6 +616,7 @@ public class LocalOssServiceImpl implements OssService {
             try {
                 Files.createDirectories(parentDir);
             } catch (IOException e) {
+                log.warn("文件夹创建失败: {}", e.getMessage());
                 throw new OssException("文件夹创建失败", e);
             }
         }
@@ -682,11 +686,13 @@ public class LocalOssServiceImpl implements OssService {
             targetPath = Path.of(privatePath, userId, absolutePath);
         } else if (visibility == VisibilityEnum.PUBLIC) {
             targetPath = Path.of(publicPath, absolutePath);
+        } else if (visibility == VisibilityEnum.USER_INFO) {
+            targetPath = Path.of(avatarPath, absolutePath);
         } else {
             log.warn("未知的访问权限");
             throw new OssException("未知的访问权限");
         }
-        return targetPath;
+        return targetPath.normalize();
     }
 
 }

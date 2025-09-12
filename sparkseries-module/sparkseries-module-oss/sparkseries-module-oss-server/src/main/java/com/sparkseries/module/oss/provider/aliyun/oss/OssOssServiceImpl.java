@@ -22,7 +22,6 @@ import java.io.InputStream;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -35,7 +34,7 @@ import static com.sparkeries.enums.StorageTypeEnum.OSS;
 import static com.sparkeries.enums.VisibilityEnum.*;
 
 /**
- *  OSS 文件管理
+ * OSS 文件管理
  */
 @Slf4j
 public class OssOssServiceImpl implements OssService {
@@ -59,11 +58,26 @@ public class OssOssServiceImpl implements OssService {
         log.info("[初始化OSS服务] 阿里云OSS存储服务初始化完成，存储桶: {}", bucketName);
     }
 
+    private static String normalizeSegment(String segment) {
+        if (segment == null || segment.isEmpty()) {
+            return "";
+        }
+        // 移除首部的斜杠
+        if (segment.startsWith("/")) {
+            segment = segment.substring(1);
+        }
+        // 移除尾部的斜杠
+        if (segment.endsWith("/")) {
+            segment = segment.substring(0, segment.length() - 1);
+        }
+        return segment;
+    }
+
     /**
-     * 上传文件到 OSS
+     * 上传文件
      *
-     * @param file MultipartFile对象，包含要上传的文件数据
-     * @return 如果文件上传成功，则返回true；否则返回false
+     * @param file 文件信息
+     * @return 操作结果
      */
     @Override
     public boolean uploadFile(UploadFileDTO file) {
@@ -71,34 +85,37 @@ public class OssOssServiceImpl implements OssService {
         VisibilityEnum visibility = file.getVisibility();
         String fileName = file.getFileName();
         String folderPath = file.getFolderPath();
-        String absolutePath = Path.of(folderPath, fileName).toString();
-        String targetPath = getTargetPath(absolutePath, visibility, userId).toString();
+        String absolutePath = String.join("/", folderPath, fileName);
+        String targetPath = getTargetPath(absolutePath, visibility, userId);
         file.setTargetPath(targetPath);
         String currentBucket = getBucketName(visibility);
         log.info("[上传文件操作] 开始上传文件: {}, ", targetPath);
 
         boolean upload = upload(file, currentBucket);
+
         if (!upload) {
             log.warn("[上传文件操作] 文件上传失败: {}", targetPath);
             throw new OssException("文件上传失败");
         }
+
         log.info("[上传文件操作] 文件上传成功: {}", targetPath);
+
         return true;
     }
 
     /**
-     * 在OSS中创建文件夹
+     * 创建文件夹
      *
      * @param folderName 文件夹名称
      * @param folderPath 文件夹路径
      * @param visibility 可见性
-     * @param userId 用户ID
-     * @return 如果文件夹创建成功，则返回true；否则返回false
+     * @param userId 用户 ID
+     * @return 操作结果
      */
     @Override
     public boolean createFolder(String folderName, String folderPath, VisibilityEnum visibility, String userId) {
-        String absolutePath = Path.of(folderPath, folderName).toString();
-        String targetPath = getTargetPath(absolutePath, visibility, userId).toString();
+        String absolutePath = String.join("/", folderPath, folderName);
+        String targetPath = getTargetPath(absolutePath, visibility, userId) + "/";
         log.info("[创建文件夹操作] 开始创建文件夹: {}", targetPath);
         OSS client = null;
         try {
@@ -119,12 +136,6 @@ public class OssOssServiceImpl implements OssService {
             log.info("[创建文件夹操作] 文件夹创建成功: {}", targetPath);
 
             return true;
-        } catch (OssException e) {
-            log.error("[创建文件夹操作] 业务异常: {}", e.getMessage());
-            throw new OssException(e.getMessage());
-        } catch (Exception e) {
-            log.error("[创建文件夹操作] 创建文件夹时发生异常: {}", e.getMessage(), e);
-            throw new OssException("OSS 创建目录失败");
         } finally {
             if (client != null) {
                 log.debug("[创建文件夹操作] 归还OSS客户端连接到连接池");
@@ -134,30 +145,30 @@ public class OssOssServiceImpl implements OssService {
     }
 
     /**
-     * 从OSS中删除文件
+     * 删除文件
      *
      * @param fileName 文件名
      * @param folderPath 文件夹路径
      * @param visibility 能见度
      * @param userId 用户 ID
-     * @return 如果文件删除成功，则返回true；否则返回false
+     * @return 操作结果
      */
     @Override
     public boolean deleteFile(String fileName, String folderPath, VisibilityEnum visibility, String userId) {
-        String absolutePath = Path.of(folderPath, fileName).toString();
+        String absolutePath = String.join("/", folderPath, fileName);
         log.info("[删除文件操作] 开始删除文件: {}", absolutePath);
         OSS client = null;
         try {
             log.debug("[删除文件操作] 从连接池获取OSS客户端连接");
             client = clientPool.getClient();
             log.debug("[删除文件操作] 成功获取OSS客户端连接，开始删除文件");
-            String targetPath = getTargetPath(absolutePath, visibility, userId).toString();
+            String targetPath = getTargetPath(absolutePath, visibility, userId);
             // 删除文件
             client.deleteObject(getBucketName(visibility), targetPath);
             log.info("[删除文件操作] 文件删除成功: {}", targetPath);
             return true;
         } catch (Exception e) {
-            log.error("[删除文件操作] 文件删除失败: {}, 错误: {}", absolutePath, e.getMessage(), e);
+            log.warn("[删除文件操作] 文件删除失败: {}, 错误: {}", absolutePath, e.getMessage(), e);
             throw new OssException("OSS中删除文件失败");
         } finally {
             if (client != null) {
@@ -168,17 +179,17 @@ public class OssOssServiceImpl implements OssService {
     }
 
     /**
-     * 从OSS中删除文件夹及其内容
+     * 删除文件夹及其内容
      *
      * @param folderName 文件夹名称
      * @param folderPath 文件夹路径
      * @param visibility 能见度
      * @param userId 用户 ID
-     * @return 如果文件夹删除成功，则返回true；否则返回false
+     * @return 操作结果
      */
     @Override
     public boolean deleteFolder(String folderName, String folderPath, VisibilityEnum visibility, String userId) {
-        String absolutePath = Path.of(folderPath, folderName).toString();
+        String absolutePath = String.join("/", folderPath, folderName);
         log.info("[删除文件夹操作] 开始删除文件夹: {}", absolutePath);
         OSS client = null;
         try {
@@ -188,7 +199,7 @@ public class OssOssServiceImpl implements OssService {
             String nextMarker = null;
             ObjectListing objectListing;
             String currentBucket = getBucketName(visibility);
-            String targetPath = getTargetPath(absolutePath, visibility, userId).toString();
+            String targetPath = getTargetPath(absolutePath, visibility, userId);
             do {
                 ListObjectsRequest listObjectsRequest = new ListObjectsRequest(currentBucket).withPrefix(targetPath).withMarker(nextMarker);
 
@@ -210,7 +221,7 @@ public class OssOssServiceImpl implements OssService {
             log.info("[删除文件夹操作] 文件夹删除成功: {}", absolutePath);
             return true;
         } catch (Exception e) {
-            log.error("[删除文件夹操作] 文件夹删除失败: {}, 错误: {}", absolutePath, e.getMessage(), e);
+            log.warn("[删除文件夹操作] 文件夹删除失败: {}, 错误: {}", absolutePath, e.getMessage(), e);
             throw new OssException("文件夹删除失败");
         } finally {
             if (client != null) {
@@ -223,20 +234,20 @@ public class OssOssServiceImpl implements OssService {
     }
 
     /**
-     * 生成文件的下载URL
+     * 生成文件的下载链接
      *
      * @param fileName 文件名
      * @param folderPath 文件夹路径
      * @param visibility 能见度
-     * @return 生成的下载URL字符串
+     * @return 文件的下载链接
      */
     @Override
     public String downLoad(String fileName, String folderPath, VisibilityEnum visibility, String userId) {
-        String absolutePath = Path.of(folderPath, fileName).toString();
+        String absolutePath = String.join("/", folderPath, fileName);
         log.info("[下载文件操作] 开始生成: {} 的下载链接", absolutePath);
         OSS client = null;
         String currentBucket = getBucketName(visibility);
-        String targetPath = getTargetPath(absolutePath, visibility, userId).toString();
+        String targetPath = getTargetPath(absolutePath, visibility, userId);
         try {
             log.debug("[下载文件操作] 从连接池获取OSS客户端连接");
             client = clientPool.getClient();
@@ -248,8 +259,8 @@ public class OssOssServiceImpl implements OssService {
             log.info("[下载文件操作] 成功生成下载链接: {}", targetPath);
             return url;
         } catch (Exception e) {
-            log.error("[下载文件操作] 生成下载链接失败: {}, 错误: {}", absolutePath, e.getMessage(), e);
-            throw new OssException("获取url路径失败");
+            log.warn("[下载文件操作] 生成下载链接失败: {}, 错误: {}", absolutePath, e.getMessage(), e);
+            throw new OssException("获取 url 路径失败");
         } finally {
             if (client != null) {
                 log.debug("[下载文件操作] 归还OSS客户端连接到连接池");
@@ -265,32 +276,32 @@ public class OssOssServiceImpl implements OssService {
      * @param folderPath 文件夹路径
      * @param visibility 能见度
      * @param userId 用户 ID
-     * @return 包含文件和文件夹信息的FilesAndFoldersVO对象
+     * @return 文件和文件夹信息列表
      */
     @Override
     public FilesAndFoldersVO listFileAndFolder(String folderName, String folderPath, VisibilityEnum visibility, Long userId) {
 
-        String absolutePath = Path.of(folderPath, folderName).toString();
+        String absolutePath = String.join("/", folderPath, folderName);
 
         log.info("[列出文件操作] 开始列出路径下的文件和文件夹: {}", absolutePath);
-
 
         List<FileInfoVO> fileInfos = metadataMapper.listFileByFolderPath(absolutePath, OSS, visibility, userId);
 
         Set<FolderInfoVO> folders = metadataMapper.listFolderNameByFolderPath(absolutePath, StorageTypeEnum.OSS, visibility, userId).stream().map(s -> new FolderInfoVO(s, folderPath)).collect(Collectors.toSet());
+
         folders.addAll(metadataMapper.listFolderPathByFolderName(folderPath, LOCAL, visibility).stream().map(s -> new FolderInfoVO(s.replace(folderPath, "").split("/")[0], folderPath)).collect(Collectors.toSet()));
 
         return new FilesAndFoldersVO(fileInfos, folders);
     }
 
     /**
-     * 生成文件的预览URL
+     * 生成文件的预览链接
      *
-     * @param fileName 文件的绝对路径
+     * @param fileName 文件名
      * @param folderPath 文件夹路径
      * @param visibility 能见度
      * @param userId 用户 ID
-     * @return 生成的预览URL字符串
+     * @return 文件的预览链接
      */
     @Override
     public String previewFile(String fileName, String folderPath, VisibilityEnum visibility, String userId) {
@@ -298,8 +309,8 @@ public class OssOssServiceImpl implements OssService {
         OSS client = null;
         String bucketName = getBucketName(visibility);
         log.info("尝试获取阿里云 OSS 文件 [{}] 的预览URL. 存储空间: [{}].", fileName, bucketName);
-        String absolutePath = Path.of(folderPath, fileName).toString();
-        String targetPath = getTargetPath(absolutePath, visibility, userId).toString();
+        String absolutePath = String.join("/", folderPath, fileName);
+        String targetPath = getTargetPath(absolutePath, visibility, userId);
         try {
             int expiryInSeconds = 300;
             log.debug("[预览文件操作] 从连接池获取OSS客户端连接");
@@ -320,7 +331,7 @@ public class OssOssServiceImpl implements OssService {
             return url.toString();
 
         } catch (Exception e) {
-            log.error("[预览文件操作] 生成预览链接失败: {}", e.getMessage(), e);
+            log.warn("[预览文件操作] 生成预览链接失败: {}", e.getMessage(), e);
             throw new RuntimeException(e);
         } finally {
             if (client != null) {
@@ -331,48 +342,41 @@ public class OssOssServiceImpl implements OssService {
     }
 
     /**
-     * 移动OSS中的文件
+     * 文件移动
      *
      * @param fileName 文件名
      * @param sourceFolderPath 源文件夹路径
      * @param targetFolderPath 目标文件夹路径
      * @param visibility 能见度
      * @param userId 用户 ID
-     * @return 如果文件移动成功，则返回true；否则返回false
+     * @return 操作结果
      */
-
     @Override
     public boolean moveFile(String fileName, String sourceFolderPath, String targetFolderPath, VisibilityEnum visibility, String userId) {
         String bucketName = getBucketName(visibility);
         log.info("[移动文件操作] 开始移动文件，从 {} 到 {}", sourceFolderPath, targetFolderPath);
         log.info("尝试移动 OSS 文件，从 [{}] 到 [{}]. 存储空间: [{}].", sourceFolderPath, targetFolderPath, bucketName);
-        String sourcePath = getTargetPath(sourceFolderPath, visibility, userId).toString();
-        String targetPath = getTargetPath(targetFolderPath, visibility, userId).toString();
+        String sourcePath = getTargetPath(sourceFolderPath, visibility, userId);
+        String targetPath = getTargetPath(targetFolderPath, visibility, userId);
         OSS client = null;
         try {
             log.debug("[移动文件操作] 从连接池获取OSS客户端连接");
             client = clientPool.getClient();
             log.debug("[移动文件操作] 成功获取OSS客户端连接，开始移动文件");
-            // 步骤 1: 复制文件到目标位置
-            // CopyObjectRequest(源存储空间名称, 源文件Key, 目标存储空间名称, 目标文件Key)
-            // 如果在同一个存储空间内移动，源存储空间和目标存储空间相同
+
             CopyObjectRequest copyObjectRequest = new CopyObjectRequest(bucketName, sourcePath, bucketName, targetPath);
 
             client.copyObject(copyObjectRequest);
             log.info("成功复制 OSS 文件，从 [{}] 到 [{}].", sourcePath, targetPath);
-            log.debug("[移动文件操作] 文件复制成功，开始删除源文件");
 
-            // 步骤 2: 删除源文件
             deleteFile(fileName, sourceFolderPath, visibility, userId);
             log.info("成功删除源 OSS 文件: [{}]", sourcePath);
-            log.debug("[移动文件操作] 源文件删除成功");
 
             log.info("成功移动 OSS 文件，从 [{}] 到 [{}].", sourcePath, targetPath);
             log.info("[移动文件操作] 文件移动成功");
             return true;
         } catch (Exception e) {
-            log.error("[移动文件操作] 移动文件时发生异常: {}", e.getMessage(), e);
-            log.error("OSS 文件移动出现错误", e);
+            log.warn("[移动文件操作] 移动文件时发生异常: {}", e.getMessage(), e);
             throw new OssException("文件移动出现错误");
         } finally {
             if (client != null) {
@@ -382,13 +386,20 @@ public class OssOssServiceImpl implements OssService {
         }
     }
 
+    // --------------------------------私有方法--------------------------------
+
     @Override
     public StorageTypeEnum getStorageType() {
         return StorageTypeEnum.OSS;
     }
 
-    // --------------------------------私有方法--------------------------------
-
+    /**
+     * 上传文件
+     *
+     * @param file 文件信息
+     * @param currentBucket 当前存储桶名
+     * @return 操作结果
+     */
     private boolean upload(UploadFileDTO file, String currentBucket) {
 
         OSS client = null;
@@ -396,6 +407,8 @@ public class OssOssServiceImpl implements OssService {
             log.debug("[上传文件操作] 从连接池获取OSS客户端连接");
             client = clientPool.getClient();
             log.debug("[上传文件操作] 成功获取OSS客户端连接，开始创建文件元数据");
+            System.out.println("----------------------");
+            System.out.println(file.getTargetPath());
 
             if (file.getSize() < OSS_SIZE_THRESHOLD) {
                 // 小文件直接上传
@@ -406,7 +419,7 @@ public class OssOssServiceImpl implements OssService {
             }
 
         } catch (Exception e) {
-            log.error("[上传文件操作] 文件上传失败: key={}, size={}, 错误: {}", file.getTargetPath(), file.getSize(), e.getMessage(), e);
+            log.warn("[上传文件操作] 文件上传失败: key={}, size={}, 错误: {}", file.getTargetPath(), file.getSize(), e.getMessage(), e);
             throw new OssException("文件上传失败: " + e.getMessage());
         } finally {
             if (client != null) {
@@ -416,6 +429,14 @@ public class OssOssServiceImpl implements OssService {
         }
     }
 
+    /**
+     * 上传小文件
+     *
+     * @param client OSS 客户端
+     * @param file 文件信息
+     * @param currentBucket 当前存储桶名
+     * @return 操作结果
+     */
     private boolean uploadSmallFile(OSS client, UploadFileDTO file, String currentBucket) {
         try (InputStream inputStream = file.getInputStream()) {
             String targetPath = file.getTargetPath();
@@ -428,6 +449,14 @@ public class OssOssServiceImpl implements OssService {
         }
     }
 
+    /**
+     * 上传大文件
+     *
+     * @param client OSS 客户端
+     * @param file 文件信息
+     * @param currentBucket 当前存储桶名
+     * @return 操作结果
+     */
     private boolean uploadLargeFile(OSS client, UploadFileDTO file, String currentBucket) {
         try (InputStream inputStream = file.getInputStream()) {
             String targetPath = file.getTargetPath();
@@ -489,7 +518,7 @@ public class OssOssServiceImpl implements OssService {
                 client.completeMultipartUpload(completeRequest);
                 log.info("文件上传完成: {}", targetPath);
             } catch (Exception e) {
-                log.error("分片上传失败: {}", e.getMessage());
+                log.warn("分片上传失败: {}", e.getMessage());
                 client.abortMultipartUpload(new AbortMultipartUploadRequest(currentBucket, targetPath, uploadId));
                 throw e;
             } finally {
@@ -507,7 +536,6 @@ public class OssOssServiceImpl implements OssService {
         }
     }
 
-
     /**
      * 计算分片大小
      *
@@ -522,7 +550,6 @@ public class OssOssServiceImpl implements OssService {
         return Math.max(minPartSize, Math.min(maxPartSize, idealPartSize));
     }
 
-
     /**
      * 获取目标路径
      *
@@ -531,13 +558,21 @@ public class OssOssServiceImpl implements OssService {
      * @param userId 用户ID
      * @return 目标路径
      */
-    public Path getTargetPath(String absolutePath, VisibilityEnum visibility, String userId) {
+    public String getTargetPath(String absolutePath, VisibilityEnum visibility, String userId) {
+
+        if (absolutePath.startsWith("/")) {
+            absolutePath = absolutePath.substring(1);
+        }
+        if (absolutePath.endsWith("/")) {
+            absolutePath = absolutePath.substring(0, absolutePath.length() - 1);
+        }
+
         if (visibility == PRIVATE) {
-            return Path.of(userId, absolutePath);
+            return String.join("/", userId, absolutePath);
         } else if (visibility == PUBLIC) {
-            return Path.of(absolutePath);
-        } else if (visibility == USER_AVATAR) {
-            return Path.of(AVATAR_STORAGE_PATH, absolutePath);
+            return String.join("/", absolutePath);
+        } else if (visibility == USER_INFO) {
+            return String.join("/", AVATAR_STORAGE_PATH, absolutePath);
         }
         log.warn("错误操作");
         throw new OssException("错误操作");
@@ -554,8 +589,8 @@ public class OssOssServiceImpl implements OssService {
             return bucketName.get(PRIVATE);
         } else if (visibility == PUBLIC) {
             return bucketName.get(PUBLIC);
-        } else if (visibility == USER_AVATAR) {
-            return bucketName.get(USER_AVATAR);
+        } else if (visibility == USER_INFO) {
+            return bucketName.get(USER_INFO);
         } else {
             log.warn("错误操作");
             throw new OssException("错误操作");

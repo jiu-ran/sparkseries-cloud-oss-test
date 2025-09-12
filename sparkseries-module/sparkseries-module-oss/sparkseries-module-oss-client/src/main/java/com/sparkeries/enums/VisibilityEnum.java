@@ -20,8 +20,7 @@ public enum VisibilityEnum {
     /**
      * 用户信息
      */
-
-    USER_AVATAR("userAvatar");
+    USER_INFO("userInfo");
 
     private final String key;
 

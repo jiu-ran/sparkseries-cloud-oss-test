@@ -216,7 +216,7 @@ public class AvatarServiceImpl implements AvatarService {
 
         String folderPath = avatarEntity.getFolderPath();
 
-        String previewUrl = getCurrentStorageService().previewFile(avatarName, folderPath, VisibilityEnum.USER_AVATAR, userId.toString());
+        String previewUrl = getCurrentStorageService().previewFile(avatarName, folderPath, VisibilityEnum.USER_INFO, userId.toString());
 
         return Result.ok(previewUrl);
     }

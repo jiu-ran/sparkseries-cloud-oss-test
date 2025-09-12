@@ -59,7 +59,7 @@ public class MinioOssServiceFactory implements OssServiceFactory {
         Map<VisibilityEnum, String> map = new HashMap<>(3);
         map.put(PUBLIC, minio.getPublicBucketName());
         map.put(PRIVATE, minio.getPrivateBucketName());
-        map.put(USER_AVATAR, minio.getUserInfoBucketName());
+        map.put(USER_INFO, minio.getUserInfoBucketName());
         if (!new MinioValidConnectServiceImpl().connectTest(minio.getEndpoint(), minio.getAccessKey(), minio.getSecretKey(), map.get(PUBLIC))) {
             log.warn("MINIO的桶 {} 测试失败", PUBLIC);
             throw new OssException("保存的MINIO存储配置失效了请重新保存");
@@ -68,8 +68,8 @@ public class MinioOssServiceFactory implements OssServiceFactory {
             log.warn("MINIO的桶 {} 测试失败", PRIVATE);
             throw new OssException("保存的MINIO存储配置失效了请重新保存");
         }
-        if (!new MinioValidConnectServiceImpl().connectTest(minio.getEndpoint(), minio.getAccessKey(), minio.getSecretKey(), map.get(USER_AVATAR))) {
-            log.warn("MINIO的桶 {} 测试失败", USER_AVATAR);
+        if (!new MinioValidConnectServiceImpl().connectTest(minio.getEndpoint(), minio.getAccessKey(), minio.getSecretKey(), map.get(USER_INFO))) {
+            log.warn("MINIO的桶 {} 测试失败", USER_INFO);
             throw new OssException("保存的MINIO存储配置失效了请重新保存");
         }
 

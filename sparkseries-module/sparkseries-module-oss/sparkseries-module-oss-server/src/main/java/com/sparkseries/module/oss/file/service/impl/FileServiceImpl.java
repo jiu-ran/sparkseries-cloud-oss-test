@@ -434,7 +434,14 @@ public class FileServiceImpl implements FileService {
         // 生成文件 Id
         long id = IdWorker.getId();
 
-        UploadFileDTO fileDTO = UploadFileDTO.builder().userId(file.getUserId().toString()).inputStream(file.getInputStream()).fileName(filename).size(size).folderPath(folderPath).visibility(visibility).build();
+        UploadFileDTO fileDTO = UploadFileDTO.builder()
+                .userId(file.getUserId().toString())
+                .inputStream(file.getInputStream())
+                .fileName(filename)
+                .size(size)
+                .folderPath(folderPath)
+                .visibility(visibility)
+                .build();
         // 上传文件
         boolean upload = getCurrentStorageService().uploadFile(fileDTO);
         if (!upload) {

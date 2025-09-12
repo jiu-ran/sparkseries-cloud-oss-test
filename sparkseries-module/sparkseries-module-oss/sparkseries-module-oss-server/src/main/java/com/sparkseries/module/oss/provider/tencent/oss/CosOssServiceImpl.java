@@ -21,7 +21,6 @@ import org.apache.commons.codec.net.URLCodec;
 
 import java.io.*;
 import java.net.URL;
-import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
@@ -34,7 +33,7 @@ import static com.sparkeries.enums.StorageTypeEnum.LOCAL;
 import static com.sparkeries.enums.VisibilityEnum.*;
 
 /**
- * COS文件存储服务实现
+ * COS 文件管理
  */
 @Slf4j
 public class CosOssServiceImpl implements OssService {
@@ -59,10 +58,10 @@ public class CosOssServiceImpl implements OssService {
     }
 
     /**
-     * 上传文件到COS
+     * 上传文件
      *
-     * @param file 要上传的文件信息
-     * @return 上传是否成功
+     * @param file 文件信息
+     * @return 操作结果
      */
     @Override
     public boolean uploadFile(UploadFileDTO file) {
@@ -73,9 +72,9 @@ public class CosOssServiceImpl implements OssService {
         VisibilityEnum visibility = file.getVisibility();
         String folderPath = file.getFolderPath();
         String fileName = file.getFileName();
-        String absolutePath = Path.of(folderPath, fileName).toString();
+        String absolutePath = String.join("/", folderPath, fileName);
 
-        String targetPath = getTargetPath(absolutePath, visibility, file.getUserId()).toString();
+        String targetPath = getTargetPath(absolutePath, visibility, file.getUserId());
         file.setTargetPath(targetPath);
         log.info("COS 开始上传文件 - 文件名: {}, 大小: {} bytes, 路径: {}",
                 file.getFileName(), file.getSize(), targetPath);
@@ -98,7 +97,7 @@ public class CosOssServiceImpl implements OssService {
             }
 
         } catch (Exception e) {
-            log.error(
+            log.warn(
                     "COS 文件上传失败 - 文件名: {}, 大小: {} bytes, 路径: {}, 错误信息: {}",
                     file.getFileName(), file.getSize(), targetPath,
                     e.getMessage(), e);
@@ -116,13 +115,13 @@ public class CosOssServiceImpl implements OssService {
      * @param folderPath 文件夹路径
      * @param visibility 文件夹可见性
      * @param userId 用户 ID
-     * @return 创建是否成功
+     * @return 操作结果
      */
     @Override
     public boolean createFolder(String folderName, String folderPath, VisibilityEnum visibility, String userId) {
         COSClient client = null;
-        String absolutePath = Path.of(folderPath, folderName).toString();
-        String targetPath = getTargetPath(absolutePath, visibility, userId).toString();
+        String absolutePath = String.join("/", folderPath, folderName);
+        String targetPath = getTargetPath(absolutePath, visibility, userId);
         String bucketName = getBucketName(visibility);
         log.info("COS 开始创建文件夹 - 路径: {}", targetPath);
 
@@ -149,7 +148,7 @@ public class CosOssServiceImpl implements OssService {
             return true;
         } catch (Exception e) {
 
-            log.error("COS 创建文件夹失败 - 路径: {}, 错误信息: {}", targetPath,
+            log.warn("COS 创建文件夹失败 - 路径: {}, 错误信息: {}", targetPath,
                     e.getMessage(), e);
             throw new OssException("创建文件夹失败: " + e.getMessage());
         } finally {
@@ -173,13 +172,13 @@ public class CosOssServiceImpl implements OssService {
      * @param folderPath 文件夹路径
      * @param visibility 文件可见性
      * @param userId 用户 ID
-     * @return 删除是否成功
+     * @return 操作结果
      */
     @Override
     public boolean deleteFile(String fileName, String folderPath, VisibilityEnum visibility, String userId) {
         COSClient client = null;
-        String absolutePath = Path.of(folderPath, fileName).toString();
-        String targetPath = getTargetPath(absolutePath, visibility, userId).toString();
+        String absolutePath = String.join("/", folderPath, fileName);
+        String targetPath = getTargetPath(absolutePath, visibility, userId);
         String bucketName = getBucketName(visibility);
         log.info("COS 开始删除文件 - 路径: {}", targetPath);
 
@@ -202,7 +201,7 @@ public class CosOssServiceImpl implements OssService {
             return true;
         } catch (Exception e) {
 
-            log.error("COS 删除文件失败 - 路径: {},错误信息: {}", absolutePath, e.getMessage(), e);
+            log.warn("COS 删除文件失败 - 路径: {},错误信息: {}", absolutePath, e.getMessage(), e);
             throw new OssException("删除文件失败: " + e.getMessage());
         } finally {
             // 确保客户端归还到池中
@@ -229,9 +228,9 @@ public class CosOssServiceImpl implements OssService {
     @Override
     public boolean deleteFolder(String folderName, String folderPath, VisibilityEnum visibility, String userId) {
         COSClient client = null;
-        String absolutePath = Path.of(folderPath, folderName).toString();
+        String absolutePath = String.join("/", folderPath, folderName);
         String bucketName = getBucketName(visibility);
-        String targetPath = getTargetPath(absolutePath, visibility, userId).toString();
+        String targetPath = getTargetPath(absolutePath, visibility, userId);
         log.info("COS 开始删除文件夹 - 路径: {}", targetPath);
 
         try {
@@ -274,7 +273,7 @@ public class CosOssServiceImpl implements OssService {
             return true;
         } catch (Exception e) {
 
-            log.error("COS 删除文件夹失败 - 路径: {}, 错误信息: {}", targetPath,
+            log.warn("COS 删除文件夹失败 - 路径: {}, 错误信息: {}", targetPath,
                     e.getMessage(), e);
             throw new OssException("删除文件夹失败: " + e.getMessage());
         } finally {
@@ -304,8 +303,8 @@ public class CosOssServiceImpl implements OssService {
     public String downLoad(String fileName, String folderPath, VisibilityEnum visibility, String userId) {
         COSClient client = null;
         String bucketName = getBucketName(visibility);
-        String absolutePath = Path.of(folderPath, fileName).toString();
-        String targetPath = getTargetPath(absolutePath, visibility, userId).toString();
+        String absolutePath = String.join("/", folderPath, fileName);
+        String targetPath = getTargetPath(absolutePath, visibility, userId);
         log.info("COS 开始生成下载链接 - 文件路径: {}", targetPath);
 
         try {
@@ -337,7 +336,7 @@ public class CosOssServiceImpl implements OssService {
             return downloadUrl;
         } catch (Exception e) {
 
-            log.error(
+            log.warn(
                     "COS 生成下载链接失败 - 文件路径: {}, 下载文件名: {},错误信息: {}",
                     absolutePath, fileName, e.getMessage(), e);
             throw new OssException("生成下载URL失败: " + e.getMessage());
@@ -366,7 +365,7 @@ public class CosOssServiceImpl implements OssService {
     @Override
     public FilesAndFoldersVO listFileAndFolder(String folderName, String folderPath, VisibilityEnum visibility, Long userId) {
 
-        String absolutePath = Path.of(folderPath, folderName).toString();
+        String absolutePath = String.join("/", folderPath, folderName);
 
         log.info("[列出文件操作] 开始列出路径下的文件和文件夹: {}", absolutePath);
 
@@ -380,13 +379,13 @@ public class CosOssServiceImpl implements OssService {
     }
 
     /**
-     * 预览文件，生成预签名URL
+     * 生成文件的预览链接
      *
      * @param fileName 文件的绝对路径
-     * @param folderPath
-     * @param visibility
-     * @param userId
-     * @return 文件的预签名URL
+     * @param folderPath 文件夹路径
+     * @param visibility 文件可见性
+     * @param userId 用户 ID
+     * @return 文件预览链接
      */
     @Override
     public String previewFile(String fileName, String folderPath, VisibilityEnum visibility, String userId) {
@@ -421,7 +420,7 @@ public class CosOssServiceImpl implements OssService {
 
         } catch (Exception e) {
 
-            log.error("COS 文件预览URL生成失败 - 路径: {},  错误信息: {}", fileName, e.getMessage(), e);
+            log.warn("COS 文件预览URL生成失败 - 路径: {},  错误信息: {}", fileName, e.getMessage(), e);
             throw new OssException("获取对应url失败: " + e.getMessage());
         } finally {
             if (client != null) {
@@ -439,17 +438,21 @@ public class CosOssServiceImpl implements OssService {
     /**
      * 移动文件
      *
+     * @param fileName 文件名
+     * @param sourceFolderPath 源文件夹路径
+     * @param targetFolderPath 目标文件夹路径
      * @param visibility 能见度
-     * @return 移动是否成功
+     * @param userId 用户 ID
+     * @return 操作结果
      */
     @Override
     public boolean moveFile(String fileName, String sourceFolderPath, String targetFolderPath, VisibilityEnum visibility, String userId) {
 
         COSClient client = null;
-        String sourceAbsolutePath = Path.of(sourceFolderPath, fileName).toString();
-        String targetAbsolutePath = Path.of(targetFolderPath, fileName).toString();
-        String sourcePath = getTargetPath(sourceAbsolutePath, visibility, userId).toString();
-        String targetPath = getTargetPath(targetAbsolutePath, visibility, userId).toString();
+        String sourceAbsolutePath = String.join("/", sourceFolderPath, fileName);
+        String targetAbsolutePath = String.join("/", targetFolderPath, fileName);
+        String sourcePath = getTargetPath(sourceAbsolutePath, visibility, userId);
+        String targetPath = getTargetPath(targetAbsolutePath, visibility, userId);
         String bucketName = getBucketName(visibility);
         log.info("COS 开始移动文件 - 源路径: {}, 目标路径: {}", sourcePath,
                 targetPath);
@@ -481,7 +484,7 @@ public class CosOssServiceImpl implements OssService {
             return true;
         } catch (Exception e) {
 
-            log.error("COS 文件移动失败 - 源路径: {}, 目标路径: {}, 错误信息: {}",
+            log.warn("COS 文件移动失败 - 源路径: {}, 目标路径: {}, 错误信息: {}",
                     sourcePath, targetPath, e.getMessage(), e);
             throw new OssException("文件移动失败: " + e.getMessage());
         } finally {
@@ -511,14 +514,14 @@ public class CosOssServiceImpl implements OssService {
     /**
      * 上传小文件
      *
-     * @param client COS客户端
+     * @param client COS 客户端
      * @param file 文件信息
      * @return 上传是否成功
      */
     private boolean uploadSmallFile(COSClient client, UploadFileDTO file) {
         String bucketName = getBucketName(file.getVisibility());
-        String absolutePath = Path.of(file.getFolderPath(), file.getFileName()).toString();
-        String targetPath = getTargetPath(absolutePath, file.getVisibility(), file.getUserId()).toString();
+        String absolutePath = String.join("/", file.getFolderPath(), file.getFileName());
+        String targetPath = getTargetPath(absolutePath, file.getVisibility(), file.getUserId());
         log.debug("COS 开始小文件上传 - 文件: {}, 大小: {} bytes", targetPath,
                 file.getSize());
 
@@ -531,7 +534,7 @@ public class CosOssServiceImpl implements OssService {
             return true;
         } catch (IOException e) {
 
-            log.error("COS 小文件上传失败 - 文件: {}, 大小: {} bytes,  错误信息: {}",
+            log.warn("COS 小文件上传失败 - 文件: {}, 大小: {} bytes,  错误信息: {}",
                     targetPath, file.getSize(), e.getMessage(), e);
             throw new OssException("小文件上传失败: " + e.getMessage());
         }
@@ -542,14 +545,14 @@ public class CosOssServiceImpl implements OssService {
      *
      * @param file 文件信息
      * @param transferManager 传输管理器
-     * @return 上传是否成功
+     * @return 操作结果
      */
     private boolean uploadLargeFile(UploadFileDTO file,
                                     TransferManager transferManager) {
         File tempFile = null;
-        String absolutePath = Path.of(file.getFolderPath(), file.getFileName()).toString();
+        String absolutePath = String.join("/", file.getFolderPath(), file.getFileName());
         String bucketName = getBucketName(file.getVisibility());
-        String targetPath = getTargetPath(absolutePath, file.getVisibility(), file.getUserId()).toString();
+        String targetPath = getTargetPath(absolutePath, file.getVisibility(), file.getUserId());
         log.debug("COS 开始大文件分片上传 - 文件: {}, 大小: {} bytes", targetPath,
                 file.getSize());
 
@@ -577,12 +580,12 @@ public class CosOssServiceImpl implements OssService {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
 
-            log.error("COS 大文件上传被中断 - 文件: {}, 大小: {} bytes",
+            log.warn("COS 大文件上传被中断 - 文件: {}, 大小: {} bytes",
                     targetPath, file.getSize());
             throw new OssException("大文件上传被中断");
         } catch (Exception e) {
 
-            log.error(
+            log.warn(
                     "COS 大文件分片上传失败 - 文件: {}, 大小: {} bytes,错误信息: {}",
                     targetPath, file.getSize(), e.getMessage(), e);
             throw new OssException("大文件上传失败: " + e.getMessage());
@@ -605,7 +608,7 @@ public class CosOssServiceImpl implements OssService {
             FileOutputStream fos = new FileOutputStream(tempFile);
             inputStream.transferTo(fos);
         } catch (IOException e) {
-            log.error("创建临时文件失败", e);
+            log.warn("创建临时文件失败", e);
             throw new OssException("创建临时文件失败");
         }
 
@@ -622,14 +625,14 @@ public class CosOssServiceImpl implements OssService {
 
         String fileName = file.getFileName();
         String folderPath = file.getFolderPath();
-        String absolutePath = Path.of(folderPath, fileName).toString();
-        Path targetPath = getTargetPath(absolutePath, file.getVisibility(), file.getUserId());
+        String absolutePath = String.join("/", folderPath, fileName);
+        String targetPath = getTargetPath(absolutePath, file.getVisibility(), file.getUserId());
 
         upload.addProgressListener(progressEvent -> {
             if (progressEvent.getEventType() == ProgressEventType.TRANSFER_COMPLETED_EVENT) {
                 log.info("上传完成: key={}", targetPath);
             } else if (progressEvent.getEventType() == ProgressEventType.TRANSFER_FAILED_EVENT) {
-                log.error("上传失败: key={}", targetPath);
+                log.warn("上传失败: key={}", targetPath);
             }
 
             // 记录进度（可选）
@@ -687,7 +690,7 @@ public class CosOssServiceImpl implements OssService {
      *
      * @param transferManager 传输管理器
      * @param threadPool 线程池
-     * @param client COS客户端
+     * @param client COS 客户端
      */
     private void closeResources(TransferManager transferManager, ExecutorService threadPool,
                                 COSClient client) {
@@ -739,13 +742,21 @@ public class CosOssServiceImpl implements OssService {
      * @param userId 用户ID
      * @return 目标路径
      */
-    public Path getTargetPath(String absolutePath, VisibilityEnum visibility, String userId) {
+    public String getTargetPath(String absolutePath, VisibilityEnum visibility, String userId) {
+
+        if (absolutePath.startsWith("/")) {
+            absolutePath = absolutePath.substring(1);
+        }
+        if (absolutePath.endsWith("/")) {
+            absolutePath = absolutePath.substring(0, absolutePath.length() - 1);
+        }
+
         if (visibility == PRIVATE) {
-            return Path.of(userId, absolutePath);
+            return String.join("/", userId, absolutePath);
         } else if (visibility == PUBLIC) {
-            return Path.of(absolutePath);
-        } else if (visibility == USER_AVATAR) {
-            return Path.of(AVATAR_STORAGE_PATH, absolutePath);
+            return String.join("/", absolutePath);
+        } else if (visibility == USER_INFO) {
+            return String.join("/", AVATAR_STORAGE_PATH, absolutePath);
         }
         log.warn("错误操作");
         throw new OssException("错误操作");
@@ -762,8 +773,8 @@ public class CosOssServiceImpl implements OssService {
             return bucketName.get(PRIVATE);
         } else if (visibility == PUBLIC) {
             return bucketName.get(PUBLIC);
-        } else if (visibility == USER_AVATAR) {
-            return bucketName.get(USER_AVATAR);
+        } else if (visibility == USER_INFO) {
+            return bucketName.get(USER_INFO);
         } else {
             log.warn("错误操作");
             throw new OssException("错误操作");
