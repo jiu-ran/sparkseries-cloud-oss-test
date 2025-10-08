@@ -22,11 +22,11 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import static com.sparkeries.constant.Constants.AVATAR_STORAGE_PATH;
 import static com.sparkeries.constant.Constants.MINIO_SIZE_THRESHOLD;
 import static com.sparkeries.enums.StorageTypeEnum.LOCAL;
 import static com.sparkeries.enums.StorageTypeEnum.MINIO;
 import static com.sparkeries.enums.VisibilityEnum.*;
+import static com.sparkseries.module.oss.common.util.FileUtil.getTargetPath;
 
 /**
  * Minio 文件管理
@@ -428,34 +428,6 @@ public class MinioOssServiceImpl implements OssService {
             log.warn("Minio 大文件分片上传失败: {}, 大小: {} bytes, 耗时: {} ms, 错误信息: {}", targetPath, fileInfo.getSize(), duration, e.getMessage(), e);
             throw new OssException("大文件分片上传失败: " + e.getMessage());
         }
-    }
-
-    /**
-     * 获取目标路径
-     *
-     * @param absolutePath 绝对路径
-     * @param visibility 访问权限
-     * @param userId 用户ID
-     * @return 目标路径
-     */
-    public String getTargetPath(String absolutePath, VisibilityEnum visibility, String userId) {
-
-        if (absolutePath.startsWith("/")) {
-            absolutePath = absolutePath.substring(1);
-        }
-        if (absolutePath.endsWith("/")) {
-            absolutePath = absolutePath.substring(0, absolutePath.length() - 1);
-        }
-
-        if (visibility == PRIVATE) {
-            return String.join("/", userId, absolutePath);
-        } else if (visibility == PUBLIC) {
-            return String.join("/", absolutePath);
-        } else if (visibility == USER_INFO) {
-            return String.join("/", AVATAR_STORAGE_PATH, absolutePath);
-        }
-        log.warn("错误操作");
-        throw new OssException("错误操作");
     }
 
     /**

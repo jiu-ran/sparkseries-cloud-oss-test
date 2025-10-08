@@ -35,11 +35,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.sparkeries.constant.Constants.AVATAR_STORAGE_PATH;
 import static com.sparkeries.constant.Constants.KODO_SIZE_THRESHOLD;
 import static com.sparkeries.enums.StorageTypeEnum.KODO;
 import static com.sparkeries.enums.StorageTypeEnum.LOCAL;
 import static com.sparkeries.enums.VisibilityEnum.*;
+import static com.sparkseries.module.oss.common.util.FileUtil.getTargetPath;
 
 /**
  * KODO 文件管理
@@ -656,34 +656,6 @@ public class KodoOssServiceImpl implements OssService {
         // 注意：为了提示浏览器在线预览，可以在 URL 中添加 response-content-disposition=inline 参数
 
         return String.format("%s/%s?response-content-disposition=inline", domains[0], encode);
-    }
-
-    /**
-     * 获取目标路径
-     *
-     * @param absolutePath 绝对路径
-     * @param visibility 访问权限
-     * @param userId 用户ID
-     * @return 目标路径
-     */
-    public String getTargetPath(String absolutePath, VisibilityEnum visibility, String userId) {
-
-        if (absolutePath.startsWith("/")) {
-            absolutePath = absolutePath.substring(1);
-        }
-        if (absolutePath.endsWith("/")) {
-            absolutePath = absolutePath.substring(0, absolutePath.length() - 1);
-        }
-
-        if (visibility == PRIVATE) {
-            return String.join("/", userId, absolutePath);
-        } else if (visibility == PUBLIC) {
-            return String.join("/", absolutePath);
-        } else if (visibility == USER_INFO) {
-            return String.join("/", AVATAR_STORAGE_PATH, absolutePath);
-        }
-        log.warn("错误操作");
-        throw new OssException("错误操作");
     }
 
     /**

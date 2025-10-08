@@ -1,6 +1,4 @@
-package com.sparkseries.common.util.handler;
-
-import static com.sparkseries.common.util.tool.Constants.STORAGE_TYPE_ENUM;
+package com.sparkseries.module.oss.common.exception;
 
 import com.sparkseries.common.util.entity.Result;
 import com.sparkseries.common.util.exception.BaseException;
@@ -8,6 +6,13 @@ import com.sparkseries.common.util.exception.BusinessException;
 import com.sparkseries.common.util.exception.ValidationException;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,15 +20,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.validation.FieldError;
-import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import static com.sparkseries.common.util.tool.Constants.STORAGE_TYPE_ENUM;
 
 /**
  * 全局异常处理器
@@ -32,21 +29,26 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    /**
-     * 处理枚举类型转换异常 当输入的枚举值不存在时，Spring会抛出MethodArgumentTypeMismatchException
-     */
-
     private Result<?> buildErrorResponse(Exception e, HttpStatus status, String logMessage) {
         log.error(logMessage, e);
         return Result.error(status.value(), e.getMessage());
     }
 
-    @ExceptionHandler(HttpMessageNotReadableException.class)
-    public Result<?> handleJsonParseError(HttpMessageNotReadableException ex) {
-        if (ex.getMessage().contains(STORAGE_TYPE_ENUM)) {
-            return Result.error("请选择正确的服务类型，支持的类型：OSS、COS、KODO、MINIO、LOCAL");
+    /**
+     * 处理枚举类型转换异常
+     *
+     * @param e MissingServletRequestParameterException 异常
+     * @return 默认响应类
+     */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public Result<?> handleMissServletParameter(MissingServletRequestParameterException e) {
+        // 检查是否是StorageTypeEnum相关的异常
+        if (e.getMessage().contains(STORAGE_TYPE_ENUM)) {
+            log.warn("请选择正确的云服务名且不能为空 OSS、COS、KODO、MINIO");
+            return Result.error("请选择正确的云服务名且不能为空 OSS、COS、MINIO、KODO");
         }
-        return Result.error("请求数据格式错误");
+        System.out.println("---------------");
+        return Result.error(e.getMessage());
     }
 
     /**
@@ -61,21 +63,6 @@ public class GlobalExceptionHandler {
         String exceptionType = e.getClass().getSimpleName();
         log.warn("捕获到异常: [类型: {}], [错误码: {}], [信息: '{}']", exceptionType, e.getCode(), e.getMessage());
         return Result.error(e.getCode(), e.getMessage());
-    }
-
-    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public Result<?> handleEnumTypeMismatch(MethodArgumentTypeMismatchException ex) {
-        log.warn("枚举类型转换异常: {}", ex.getMessage());
-
-        // 检查是否是StorageTypeEnum相关的异常
-        if (ex.getRequiredType() != null && ex.getRequiredType().getSimpleName()
-                .equals(STORAGE_TYPE_ENUM)) {
-            return Result.error("请选择正确的服务类型，支持的类型：OSS、COS、KODO、MINIO、LOCAL");
-        }
-
-        // 其他枚举类型异常的通用处理
-        return Result.error("参数类型错误: " + ex.getName());
     }
 
     @ExceptionHandler(ConstraintViolationException.class)

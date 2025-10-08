@@ -26,11 +26,11 @@ import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 import static com.qcloud.cos.http.HttpMethodName.GET;
-import static com.sparkeries.constant.Constants.AVATAR_STORAGE_PATH;
 import static com.sparkeries.constant.Constants.COS_SIZE_THRESHOLD;
 import static com.sparkeries.enums.StorageTypeEnum.COS;
 import static com.sparkeries.enums.StorageTypeEnum.LOCAL;
 import static com.sparkeries.enums.VisibilityEnum.*;
+import static com.sparkseries.module.oss.common.util.FileUtil.getTargetPath;
 
 /**
  * COS 文件管理
@@ -732,34 +732,6 @@ public class CosOssServiceImpl implements OssService {
                 log.warn("归还 COSClient 到池中失败", e);
             }
         }
-    }
-
-    /**
-     * 获取目标路径
-     *
-     * @param absolutePath 绝对路径
-     * @param visibility 访问权限
-     * @param userId 用户ID
-     * @return 目标路径
-     */
-    public String getTargetPath(String absolutePath, VisibilityEnum visibility, String userId) {
-
-        if (absolutePath.startsWith("/")) {
-            absolutePath = absolutePath.substring(1);
-        }
-        if (absolutePath.endsWith("/")) {
-            absolutePath = absolutePath.substring(0, absolutePath.length() - 1);
-        }
-
-        if (visibility == PRIVATE) {
-            return String.join("/", userId, absolutePath);
-        } else if (visibility == PUBLIC) {
-            return String.join("/", absolutePath);
-        } else if (visibility == USER_INFO) {
-            return String.join("/", AVATAR_STORAGE_PATH, absolutePath);
-        }
-        log.warn("错误操作");
-        throw new OssException("错误操作");
     }
 
     /**

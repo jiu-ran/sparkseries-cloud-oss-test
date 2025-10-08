@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/storage")
 @RequiredArgsConstructor
+@Validated
 @Tag(name = "储存服务管理")
 public class StorageController {
 
@@ -32,7 +34,7 @@ public class StorageController {
     @PutMapping("/strategy")
     @Operation(summary = "切换储存服务")
     public Result<?> changeStorage(@RequestParam @NotNull(message = "请选择服务类型") StorageTypeEnum type,
-                                   @RequestParam Long id) {
+                                   @RequestParam @NotNull(message = "请输入已保存的云服务 ID") Long id) {
 
         return storageService.changeService(type.getValue(), id);
     }

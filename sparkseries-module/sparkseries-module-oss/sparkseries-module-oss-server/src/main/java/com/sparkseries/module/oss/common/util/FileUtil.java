@@ -1,12 +1,16 @@
 package com.sparkseries.module.oss.common.util;
 
 import com.baomidou.mybatisplus.core.toolkit.ObjectUtils;
+import com.sparkeries.enums.VisibilityEnum;
 import com.sparkseries.module.oss.common.exception.OssException;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
+import static com.sparkeries.constant.Constants.AVATAR_STORAGE_PATH;
+import static com.sparkeries.enums.VisibilityEnum.*;
 
 /**
  * 文件名和路径校验工具类
@@ -74,7 +78,7 @@ public class FileUtil {
         // 去除首尾空格
         fileName = fileName.trim();
 
-        // 去除末尾的所有点（例如 "file..." → "file"）
+        // 去除末尾的所有点
         fileName = fileName.replaceAll("\\.+$", "");
 
         return fileName;
@@ -187,11 +191,8 @@ public class FileUtil {
         // 4. 分割路径，处理每个目录部分的末尾点
         String[] parts = normalized.split("/");
         String processed = Arrays.stream(parts)
-                // 过滤空目录
                 .filter(part -> !part.isEmpty())
-                // 仅去除末尾的点
                 .map(part -> part.replaceAll("\\.+$", ""))
-                // 过滤处理后可能产生的空目录（如 "..." → ""）
                 .filter(part -> !part.isEmpty())
                 .collect(Collectors.joining("/"));
 
@@ -285,5 +286,33 @@ public class FileUtil {
         String normalized = normalizeFolderPath(path);
         isValidPath(normalized);
         return normalized;
+    }
+
+    /**
+     * 获取目标路径
+     *
+     * @param absolutePath 绝对路径
+     * @param visibility 访问权限
+     * @param userId 用户ID
+     * @return 目标路径
+     */
+    public static String getTargetPath(String absolutePath, VisibilityEnum visibility, String userId) {
+
+        if (absolutePath.startsWith("/")) {
+            absolutePath = absolutePath.substring(1);
+        }
+        if (absolutePath.endsWith("/")) {
+            absolutePath = absolutePath.substring(0, absolutePath.length() - 1);
+        }
+
+        if (visibility == PRIVATE) {
+            return String.join("/", userId, absolutePath);
+        } else if (visibility == PUBLIC) {
+            return String.join("/", absolutePath);
+        } else if (visibility == USER_INFO) {
+            return String.join("/", AVATAR_STORAGE_PATH, absolutePath);
+        }
+        log.warn("错误操作");
+        throw new OssException("错误操作");
     }
 }
